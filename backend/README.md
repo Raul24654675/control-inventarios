@@ -1,53 +1,130 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Control de Inventarios - Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Sistema de gestión de inventario industrial construido con NestJS, Prisma y PostgreSQL.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Descripción
 
-## Description
+Este proyecto es un backend para un sistema de control de inventarios que permite gestionar equipos industriales con autenticación JWT y control de roles.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Tecnologías
 
-## Project setup
+- **NestJS**: Framework de Node.js
+- **Prisma**: ORM para base de datos
+- **PostgreSQL**: Base de datos
+- **JWT**: Autenticación
+- **bcrypt**: Hashing de contraseñas
+
+## Instalación y Configuración
+
+### Prerrequisitos
+
+- Node.js (versión 18 o superior)
+- PostgreSQL (instalado y ejecutándose)
+- npm o yarn
+
+### Clonar el Repositorio
 
 ```bash
-$ npm install
+git clone https://github.com/Raul24654675/control-inventarios.git
+cd control-inventarios/backend
 ```
 
-## Compile and run the project
+### Instalar Dependencias
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm install
 ```
 
-## Run tests
+### Configurar Variables de Entorno
+
+Copia el archivo `.env` de ejemplo y configura las variables:
 
 ```bash
-# unit tests
+cp .env.example .env  # Si existe, o edita .env directamente
+```
+
+Asegúrate de tener configurado:
+
+```
+DATABASE_URL="postgresql://usuario:password@localhost:5432/inventario_db"
+JWT_SECRET="tu_clave_secreta_aqui"
+```
+
+### Configurar la Base de Datos
+
+1. Instala Prisma CLI si no lo tienes:
+```bash
+npm install -g prisma
+```
+
+2. Ejecuta las migraciones:
+```bash
+npx prisma migrate dev
+```
+
+3. Genera el cliente de Prisma:
+```bash
+npx prisma generate
+```
+
+## Ejecutar el Proyecto
+
+```bash
+# Modo desarrollo (con recarga automática)
+npm run start:dev
+
+# Modo producción
+npm run build
+npm run start:prod
+```
+
+El servidor se ejecutará en `http://localhost:3000` (o el puerto configurado en `.env`).
+
+## Endpoints Principales
+
+### Autenticación
+- `POST /auth/register` - Registrar usuario
+- `POST /auth/login` - Iniciar sesión
+
+### Equipos
+- `GET /equipos` - Listar equipos (requiere autenticación)
+- `POST /equipos` - Crear equipo
+- `GET /equipos/:id` - Obtener equipo por ID
+- `PUT /equipos/:id` - Actualizar equipo
+- `DELETE /equipos/:id` - Eliminar equipo
+
+## Ejecutar Pruebas
+
+```bash
+# Pruebas unitarias
+npm run test
+
+# Pruebas e2e
+npm run test:e2e
+
+# Cobertura de pruebas
+npm run test:cov
+```
+
+## Scripts Disponibles
+
+- `npm run build` - Compilar el proyecto
+- `npm run format` - Formatear código con Prettier
+- `npm run lint` - Ejecutar ESLint
+- `npm run start` - Iniciar en modo producción
+- `npm run start:dev` - Iniciar en modo desarrollo
+- `npm run start:debug` - Iniciar en modo debug
+
+## Contribuir
+
+1. Crea una rama para tu feature: `git checkout -b feature/nueva-funcionalidad`
+2. Realiza tus cambios y commits
+3. Sube la rama: `git push origin feature/nueva-funcionalidad`
+4. Crea un Pull Request
+
+## Licencia
+
+Este proyecto está bajo la licencia UNLICENSED.
 $ npm run test
 
 # e2e tests
