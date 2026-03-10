@@ -11,15 +11,16 @@ import {
 
 import { EquipoService } from './equipo.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 
 @Controller('equipos')
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class EquipoController {
   constructor(private readonly equipoService: EquipoService) {}
 
   // 🔎 VER TODOS LOS EQUIPOS
   // ADMIN y OPERADOR
-  @UseGuards(JwtAuthGuard)
   @Roles('ADMIN', 'OPERADOR')
   @Get()
   findAll() {
