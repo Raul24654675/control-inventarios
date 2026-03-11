@@ -6,8 +6,10 @@ import {
   Delete,
   Param,
   Body,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import type { Request } from 'express';
 
 import { EquipoService } from './equipo.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -27,7 +29,21 @@ export class EquipoController {
     return this.equipoService.findAll();
   }
 
-  // 🔎 VER UN EQUIPO POR ID
+  // � HISTORIAL DE CAMBIOS (ADMIN y OPERADOR)
+  @Roles('ADMIN', 'OPERADOR')
+  @Get('historial')
+  getHistorial() {
+    return this.equipoService.getHistorial();
+  }
+
+  // 📜 HISTORIAL DE CAMBIOS POR EQUIPO (ADMIN y OPERADOR)
+  @Roles('ADMIN', 'OPERADOR')
+  @Get(':id/historial')
+  getHistorialByEquipo(@Param('id') id: string) {
+    return this.equipoService.getHistorialByEquipo(Number(id));
+  }
+
+  // �🔎 VER UN EQUIPO POR ID
   // ADMIN y OPERADOR
   @UseGuards(JwtAuthGuard)
   @Roles('ADMIN', 'OPERADOR')
@@ -38,28 +54,25 @@ export class EquipoController {
 
   // ➕ CREAR EQUIPO
   // SOLO ADMIN
-  @UseGuards(JwtAuthGuard)
   @Roles('ADMIN')
   @Post()
-  create(@Body() data: any) {
-    return this.equipoService.create(data);
+  create(@Body() data: any, @Req() req: Request) {
+    return this.equipoService.create(data, req.user as any);
   }
 
   // ✏ ACTUALIZAR EQUIPO
   // ADMIN y OPERADOR
-  @UseGuards(JwtAuthGuard)
   @Roles('ADMIN', 'OPERADOR')
   @Patch(':id')
-  update(@Param('id') id: string, @Body() data: any) {
-    return this.equipoService.update(Number(id), data);
+  update(@Param('id') id: string, @Body() data: any, @Req() req: Request) {
+    return this.equipoService.update(Number(id), data, req.user as any);
   }
 
   // ❌ ELIMINAR EQUIPO
   // SOLO ADMIN
-  @UseGuards(JwtAuthGuard)
   @Roles('ADMIN')
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.equipoService.remove(Number(id));
+  remove(@Param('id') id: string, @Req() req: Request) {
+    return this.equipoService.remove(Number(id), req.user as any);
   }
 }
