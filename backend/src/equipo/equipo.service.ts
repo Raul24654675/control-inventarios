@@ -11,9 +11,28 @@ type AuthUser = {
 export class EquipoService {
   constructor(private prisma: PrismaService) {}
 
-  // 🔎 Obtener todos los equipos
-  async findAll() {
+  // 🔎 Obtener todos los equipos (opcionalmente filtrados por id/nombre/ubicacion)
+  async findAll(filter?: { id?: number; nombre?: string; ubicacion?: string }) {
+    const where: any = {};
+
+    if (filter?.id) {
+      where.id = filter.id;
+    }
+    if (filter?.nombre) {
+      where.nombre = {
+        contains: filter.nombre,
+        mode: 'insensitive',
+      };
+    }
+    if (filter?.ubicacion) {
+      where.ubicacion = {
+        contains: filter.ubicacion,
+        mode: 'insensitive',
+      };
+    }
+
     return this.prisma.equipo.findMany({
+      where,
       orderBy: {
         creadoEn: 'desc',
       },
