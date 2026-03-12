@@ -7,6 +7,7 @@ import {
   Param,
   Body,
   Req,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import type { Request } from 'express';
@@ -21,12 +22,20 @@ import { Roles } from '../auth/roles.decorator';
 export class EquipoController {
   constructor(private readonly equipoService: EquipoService) {}
 
-  // 🔎 VER TODOS LOS EQUIPOS
+  // 🔎 VER TODOS LOS EQUIPOS (filtro opcional por id/nombre/ubicacion)
   // ADMIN y OPERADOR
   @Roles('ADMIN', 'OPERADOR')
   @Get()
-  findAll() {
-    return this.equipoService.findAll();
+  findAll(
+    @Query('id') id?: string,
+    @Query('nombre') nombre?: string,
+    @Query('ubicacion') ubicacion?: string,
+  ) {
+    return this.equipoService.findAll({
+      id: id ? Number(id) : undefined,
+      nombre,
+      ubicacion,
+    });
   }
 
   // � HISTORIAL DE CAMBIOS (ADMIN y OPERADOR)
