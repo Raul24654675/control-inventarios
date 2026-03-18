@@ -6,12 +6,13 @@ import {
   Delete,
   Param,
   Body,
-  UseGuards,
-  Request,
+  Req,
   Query,
+  UseGuards,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
+import type { Request as ExpressRequest } from 'express';
 
 import { EquipoService } from './equipo.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -23,9 +24,6 @@ import { Roles } from '../auth/roles.decorator';
 export class EquipoController {
   constructor(private readonly equipoService: EquipoService) {}
 
-  // DTO import
-  private readonly validatePipe = new ValidationPipe({ transform: true, whitelist: true });
-
   // 🔎 VER TODOS LOS EQUIPOS (con filtros y paginación)
   // ADMIN y OPERADOR
   @Roles('ADMIN', 'OPERADOR')
@@ -33,6 +31,20 @@ export class EquipoController {
   @Get()
   findAll(@Query() query: any) {
     return this.equipoService.findAll(query);
+  }
+
+  // 📜 HISTORIAL DE CAMBIOS (ADMIN y OPERADOR)
+  @Roles('ADMIN', 'OPERADOR')
+  @Get('historial')
+  getHistorial() {
+    return this.equipoService.getHistorial();
+  }
+
+  // 📜 HISTORIAL DE CAMBIOS POR EQUIPO (ADMIN y OPERADOR)
+  @Roles('ADMIN', 'OPERADOR')
+  @Get(':id/historial')
+  getHistorialByEquipo(@Param('id') id: string) {
+    return this.equipoService.getHistorialByEquipo(Number(id));
   }
 
   // 🔎 VER UN EQUIPO POR ID
@@ -46,28 +58,25 @@ export class EquipoController {
 
   // ➕ CREAR EQUIPO
   // SOLO ADMIN
-  @UseGuards(JwtAuthGuard)
   @Roles('ADMIN')
   @Post()
-  create(@Body() data: any, @Request() req: any) {
-    return this.equipoService.create(data, req.user);
+  create(@Body() data: any, @Req() req: ExpressRequest) {
+    return this.equipoService.create(data, req.user as any);
   }
 
   // ✏ ACTUALIZAR EQUIPO
   // ADMIN y OPERADOR
-  @UseGuards(JwtAuthGuard)
   @Roles('ADMIN', 'OPERADOR')
   @Patch(':id')
-  update(@Param('id') id: string, @Body() data: any, @Request() req: any) {
-    return this.equipoService.update(Number(id), data, req.user);
+  update(@Param('id') id: string, @Body() data: any, @Req() req: ExpressRequest) {
+    return this.equipoService.update(Number(id), data, req.user as any);
   }
 
   // ❌ ELIMINAR EQUIPO
   // SOLO ADMIN
-  @UseGuards(JwtAuthGuard)
   @Roles('ADMIN')
   @Delete(':id')
-  remove(@Param('id') id: string, @Request() req: any) {
-    return this.equipoService.remove(Number(id), req.user);
+  remove(@Param('id') id: string, @Req() req: ExpressRequest) {
+    return this.equipoService.remove(Number(id), req.user as any);
   }
 }

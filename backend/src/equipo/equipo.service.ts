@@ -1,6 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
+type AuthUser = {
+  userId: number | string;
+  email?: string;
+  rol?: string;
+};
+
 @Injectable()
 export class EquipoService {
   constructor(private prisma: PrismaService) {}
@@ -11,6 +17,8 @@ export class EquipoService {
     if (filters.sector) where.sector = filters.sector;
     if (filters.estado) where.estado = filters.estado;
     if (filters.nombre) where.nombre = { contains: filters.nombre, mode: 'insensitive' };
+    if (filters.ubicacion) where.ubicacion = { contains: filters.ubicacion, mode: 'insensitive' };
+    if (filters.id) where.id = filters.id;
 
     const page = filters.page ?? 1;
     const limit = filters.limit ?? 20;
@@ -25,7 +33,6 @@ export class EquipoService {
       take: limit,
     });
   }
-
   // 🔎 Obtener un equipo por ID
   async findOne(id: number) {
     const equipo = await this.prisma.equipo.findUnique({
@@ -39,9 +46,36 @@ export class EquipoService {
     return equipo;
   }
 
-  // ➕ Crear un equipo
-  async create(data: any, user: any) {
-    const equipo = await this.prisma.equipo.create({
+  // 📜 Historial completo (solo para ADMIN)
+  async getHistorial() {
+    return this.prisma.historialCambios.findMany({
+      orderBy: { fecha: 'desc' },
+      include: {
+        equipo: true,
+        usuario: {
+          select: { id: true, nombre: true, email: true, rol: true },
+        },
+      },
+    });
+  }
+
+  // 📜 Historial del equipo (solo para ADMIN)
+  async getHistorialByEquipo(equipoId: number) {
+    return this.prisma.historialCambios.findMany({
+      where: { equipoId },
+      orderBy: { fecha: 'desc' },
+      include: {
+        equipo: true,
+        usuario: {
+          select: { id: true, nombre: true, email: true, rol: true },
+        },
+      },
+    });
+  }
+
+  // ➕ Crear un equipo y registrar el historial
+  async create(data: any, user: AuthUser) {
+    const createdEquipo = await this.prisma.equipo.create({
       data: {
         nombre: data.nombre,
         sector: data.sector,
@@ -51,22 +85,27 @@ export class EquipoService {
       },
     });
 
-    // registro de creación en historial
     await this.prisma.historialCambios.create({
       data: {
-        equipoId: equipo.id,
-        usuarioId: user.userId,
-        campo: 'CREACION',
+        equipoId: createdEquipo.id,
+        usuarioId: Number(user.userId),
+        campo: 'CREACIÓN',
         valorAnterior: null,
-        valorNuevo: JSON.stringify(data),
+        valorNuevo: JSON.stringify({
+          nombre: createdEquipo.nombre,
+          sector: createdEquipo.sector,
+          descripcion: createdEquipo.descripcion,
+          estado: createdEquipo.estado,
+          ubicacion: createdEquipo.ubicacion,
+        }),
       },
     });
 
-    return equipo;
+    return createdEquipo;
   }
 
-  // ✏ Actualizar un equipo
-  async update(id: number, data: any, user: any) {
+  // ✏ Actualizar un equipo y registrar cambios en historial
+  async update(id: number, data: any, user: AuthUser) {
     const equipoExiste = await this.prisma.equipo.findUnique({
       where: { id },
     });
@@ -81,7 +120,7 @@ export class EquipoService {
       delete data.estado;
     }
 
-    const updated = await this.prisma.equipo.update({
+    const actualizado = await this.prisma.equipo.update({
       where: { id },
       data: {
         nombre: data.nombre,
@@ -92,36 +131,68 @@ export class EquipoService {
       },
     });
 
-    // grabar cambios individuales en el historial
-    const campos: Array<keyof typeof equipoExiste> = [
-      'nombre',
-      'sector',
-      'descripcion',
-      'estado',
-      'ubicacion',
-    ];
+    const cambios: Array<{
+      campo: string;
+      anterior?: string | null;
+      nuevo?: string | null;
+    }> = [];
 
-    for (const campo of campos) {
-      const anterior = equipoExiste[campo];
-      const nuevo = data[campo];
-      if (nuevo !== undefined && anterior !== nuevo) {
-        await this.prisma.historialCambios.create({
-          data: {
-            equipoId: id,
-            usuarioId: user.userId,
-            campo: String(campo),
-            valorAnterior: anterior == null ? null : String(anterior),
-            valorNuevo: nuevo == null ? null : String(nuevo),
-          },
-        });
-      }
+    if (data.nombre !== undefined && data.nombre !== equipoExiste.nombre) {
+      cambios.push({
+        campo: 'nombre',
+        anterior: equipoExiste.nombre,
+        nuevo: data.nombre,
+      });
+    }
+    if (data.sector !== undefined && data.sector !== equipoExiste.sector) {
+      cambios.push({
+        campo: 'sector',
+        anterior: equipoExiste.sector,
+        nuevo: data.sector,
+      });
+    }
+    if (data.descripcion !== undefined && data.descripcion !== equipoExiste.descripcion) {
+      cambios.push({
+        campo: 'descripcion',
+        anterior: equipoExiste.descripcion ?? null,
+        nuevo: data.descripcion,
+      });
+    }
+    if (data.estado !== undefined && data.estado !== equipoExiste.estado) {
+      cambios.push({
+        campo: 'estado',
+        anterior: equipoExiste.estado,
+        nuevo: data.estado,
+      });
+    }
+    if (data.ubicacion !== undefined && data.ubicacion !== equipoExiste.ubicacion) {
+      cambios.push({
+        campo: 'ubicacion',
+        anterior: equipoExiste.ubicacion ?? null,
+        nuevo: data.ubicacion,
+      });
     }
 
-    return updated;
+    // Guardar solo si hubo cambios
+    await Promise.all(
+      cambios.map((cambio) =>
+        this.prisma.historialCambios.create({
+          data: {
+            equipoId: actualizado.id,
+            usuarioId: Number(user.userId),
+            campo: cambio.campo,
+            valorAnterior: cambio.anterior ?? null,
+            valorNuevo: cambio.nuevo ?? null,
+          },
+        }),
+      ),
+    );
+
+    return actualizado;
   }
 
-  // ❌ Eliminar equipo
-  async remove(id: number, user: any) {
+  // ❌ Eliminar equipo y registrar el evento
+  async remove(id: number, user: AuthUser) {
     const equipoExiste = await this.prisma.equipo.findUnique({
       where: { id },
     });
@@ -130,19 +201,26 @@ export class EquipoService {
       throw new NotFoundException('Equipo no encontrado');
     }
 
-    // registrar eliminación antes de borrar
+    const eliminado = await this.prisma.equipo.delete({
+      where: { id },
+    });
+
     await this.prisma.historialCambios.create({
       data: {
-        equipoId: id,
-        usuarioId: user.userId,
-        campo: 'ELIMINACION',
-        valorAnterior: JSON.stringify(equipoExiste),
+        equipoId: eliminado.id,
+        usuarioId: Number(user.userId),
+        campo: 'ELIMINACIÓN',
+        valorAnterior: JSON.stringify({
+          nombre: eliminado.nombre,
+          sector: eliminado.sector,
+          descripcion: eliminado.descripcion,
+          estado: eliminado.estado,
+          ubicacion: eliminado.ubicacion,
+        }),
         valorNuevo: null,
       },
     });
 
-    return this.prisma.equipo.delete({
-      where: { id },
-    });
+    return eliminado;
   }
 }

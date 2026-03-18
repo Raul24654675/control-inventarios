@@ -1,7 +1,8 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
@@ -13,16 +14,29 @@ export class AuthService {
   async register(data: any) {
     const hashedPassword = await bcrypt.hash(data.password, 10);
 
-    const user = await this.prisma.usuario.create({
-      data: {
-        nombre: data.nombre,
-        email: data.email,
-        password: hashedPassword,
-        rol: data.rol,
-      },
-    });
-
-    return user;
+    try {
+      const user = await this.prisma.usuario.create({
+        data: {
+          nombre: data.nombre,
+          email: data.email,
+          password: hashedPassword,
+          rol: data.rol,
+        },
+      });
+      return user;
+    } catch (e: any) {
+      // Prisma unique constraint error on email
+      const target = e?.meta?.target;
+      const targets = Array.isArray(target) ? target : typeof target === 'string' ? [target] : [];
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2002' &&
+        targets.includes('email')
+      ) {
+        throw new ConflictException('Email already registered');
+      }
+      throw e;
+    }
   }
 
   async login(email: string, password: string) {

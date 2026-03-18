@@ -3,17 +3,28 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
+import { PrismaService } from '../src/prisma/prisma.service';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
 
     app = moduleFixture.createNestApplication();
     await app.init();
+
+    // clean database once at start
+    const prisma = app.get(PrismaService);
+    await prisma.historialCambios.deleteMany();
+    await prisma.equipo.deleteMany();
+    await prisma.usuario.deleteMany();
+  });
+
+  afterAll(async () => {
+    await app.close();
   });
 
   it('/ (GET)', () => {
@@ -87,6 +98,13 @@ describe('AppController (e2e)', () => {
       expect(res.status).toBe(200);
       expect(res.body.sector).toBe('ELECTRICA');
       expect(res.body.estado).toBe('ACTIVO');
+    });
+
+    it('operador cannot delete equipo', async () => {
+      const res = await request(app.getHttpServer())
+        .delete(`/equipos/${createdId}`)
+        .set('Authorization', `Bearer ${opToken}`);
+      expect(res.status).toBe(403);
     });
 
     it('history endpoint returns entries', async () => {
