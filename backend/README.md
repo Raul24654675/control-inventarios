@@ -83,8 +83,9 @@ El servidor se ejecutará en `http://localhost:3000` (o el puerto configurado en
 ## Endpoints Principales
 
 ### Autenticación
-- `POST /auth/register` - Registrar usuario
-- `POST /auth/login` - Iniciar sesión
+- `POST /auth/register` - Registrar usuario (requiere token ADMIN)
+- `POST /auth/login/admin` - Iniciar sesión como administrador
+- `POST /auth/login/operador` - Iniciar sesión como operador
 
 ### Equipos
 - `GET /equipos` - Listar equipos (requiere autenticación)
