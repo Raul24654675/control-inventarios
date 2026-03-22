@@ -1,79 +1,137 @@
 ---
 name: project-context
-description: Agent content describing the full structure of the Inventario Industrial project, including backend modules, database schema, authentication flow, and development commands. Use this for understanding where code lives and how to implement new features.
+description: "Use when: you need the shared context of the Inventario Industrial project, current backend architecture, validated endpoints, database baseline, role rules, or the current development status. This is the general agent that all contributors should keep updated when a change affects the whole project."
 ---
 
-# Inventario Industrial - Proyecto Backend (NestJS + Prisma)
+# Inventario Industrial - Agente General del Proyecto
 
-Este proyecto implementa un backend en **NestJS** para un sistema de inventario industrial.
+Este es el agente general compartido del proyecto. Resume el estado actual validado del backend, las reglas funcionales, el baseline de datos y el protocolo para mantener sincronizados los agentes personales.
 
-## Estructura de carpetas clave
+## Alcance actual del proyecto
 
-- **backend/**: Código principal del servidor.
-  - **src/**: Código fuente TypeScript.
-    - **app.module.ts**: Módulo raíz que importa los demás módulos.
-    - **main.ts**: Punto de arranque del servidor.
-    - **auth/**: Módulo de autenticación JWT.
-      - `auth.controller.ts` - Endpoints de login/registro.
-      - `auth.service.ts` - Lógica de auth, hashing de contraseñas, generación de tokens.
-      - `jwt.strategy.ts` - Estrategia de Passport/JWT.
-      - `jwt-auth.guard.ts` - Guarda JWT.
-      - `roles.decorator.ts` - Decorador para roles.
-      - `roles.guard.ts` - Valida roles de usuario.
-    - **equipo/**: Módulo de gestión de equipos.
-      - `equipo.controller.ts` - Endpoints CRUD para equipos.
-      - `equipo.service.ts` - Lógica de acceso a datos.
-    - **prisma/**: Módulo que expone el cliente Prisma.
-      - `prisma.service.ts` - Inicializa Prisma.
-      - `prisma.module.ts` - Exporta el servicio.
-  - **prisma/**: Definición de la base de datos.
-    - `schema.prisma` - Modelos `Usuario`, `Equipo`, `HistorialCambios`, enums para `Rol`, `Sector`, `Estado`.
-    - `migrations/` - Migraciones generadas por Prisma.
-  - **test/**: Pruebas end-to-end.
-  - `.env` - Variables de entorno (DB URL, JWT secret). 
+- Estado actual: backend NestJS funcional, sin interfaz web embebida de pruebas.
+- Ruta raiz actual: `GET /` responde `Hello World!`.
+- Frontend: pendiente para una etapa posterior. La antigua ruta `/tester` fue eliminada.
+- Base de datos: PostgreSQL con Prisma.
+- Ultima validacion fuerte conocida: build OK, pruebas unitarias 6/6, e2e 16/16, pruebas negativas verificadas.
 
-## Flujo de autenticación
+## Estructura principal
 
-1. Registro (`POST /auth/register`) guarda usuario con password hasheada (bcrypt).
-2. Login (`POST /auth/login`) verifica credenciales y devuelve JWT.
-3. El JWT se envía en el header `Authorization: Bearer <token>`.
-4. Guardas (`JwtAuthGuard`) validan token y exponen `request.user`.
-5. Guardas de roles (`RolesGuard`) validan `user.rol` frente a decorador `@Roles(...)`.
+- `backend/src/app.module.ts`: modulo raiz.
+- `backend/src/auth/`: autenticacion, JWT y roles.
+- `backend/src/equipo/`: CRUD de equipos con restricciones por rol.
+- `backend/src/historial/`: consulta de historial de cambios.
+- `backend/src/prisma/`: acceso a PostgreSQL mediante Prisma.
+- `backend/prisma/schema.prisma`: modelos `Usuario`, `Equipo`, `HistorialCambios` y enums.
+- `backend/test/app.e2e-spec.ts`: suite e2e principal.
+- `backend/scripts/seedAdminOperariosEquipos.js`: restauracion del baseline fijo.
+- `backend/scripts/negative-checks.ps1`: validacion manual de errores y restricciones.
 
-## Cómo ejecutar el proyecto
+## Endpoints validados
 
-### Instalar dependencias
+### Salud basica
+
+- `GET /`
+  - Respuesta actual: `Hello World!`
+
+### Autenticacion
+
+- `POST /auth/login/admin`
+  - Login exclusivo para usuarios con rol `ADMIN`.
+- `POST /auth/login/operador`
+  - Login exclusivo para usuarios con rol `OPERADOR`.
+- `POST /auth/register`
+  - Requiere token JWT valido.
+  - Requiere rol `ADMIN`.
+  - Permite crear usuarios con rol `ADMIN` u `OPERADOR` segun payload.
+  - Devuelve mensaje `Usuario creado con exito` y el usuario sin password.
+
+### Equipos
+
+- `GET /equipos`
+  - Requiere `ADMIN` u `OPERADOR`.
+  - Soporta filtros por `id`, `sector`, `estado`, `nombre`, `ubicacion`, `page`, `limit`.
+- `GET /equipos/:id`
+  - Requiere `ADMIN` u `OPERADOR`.
+  - Valida que `id` sea entero positivo.
+- `POST /equipos`
+  - Solo `ADMIN`.
+  - Requiere `nombre`, `sector`, `estado`.
+  - Registra historial de creacion.
+- `PATCH /equipos/:id`
+  - `ADMIN` y `OPERADOR`.
+  - El `OPERADOR` no puede cambiar `sector` ni `estado`.
+  - Registra historial de actualizacion.
+- `DELETE /equipos/:id`
+  - Solo `ADMIN`.
+  - Borra historial asociado antes del delete para evitar error por FK.
+
+### Historial
+
+- `GET /historial`
+  - Requiere `ADMIN` u `OPERADOR`.
+  - Devuelve historial enriquecido con equipo, usuario, accion, cambios y resumen.
+- `GET /historial?equipoId=<id>`
+  - Requiere `ADMIN` u `OPERADOR`.
+  - Valida que `equipoId` sea entero positivo.
+
+## Reglas de negocio confirmadas
+
+- El backend opera con roles `ADMIN` y `OPERADOR`.
+- Un `OPERADOR` no puede crear equipos.
+- Un `OPERADOR` no puede eliminar equipos.
+- Un `OPERADOR` no puede registrar usuarios.
+- Un `OPERADOR` puede listar equipos, consultar equipos y editar campos permitidos.
+- Los mensajes de error estan centralizados en `backend/src/common/error-messages.ts`.
+- `JwtAuthGuard` devuelve mensajes claros para token requerido, invalido o expirado.
+- `RolesGuard` devuelve `La accion no esta permitida para este rol` cuando corresponde.
+
+## Baseline fijo de PostgreSQL
+
+Este baseline no debe borrarse ni alterarse sin una decision explicita del equipo.
+
+- 1 administrador unico esperado por baseline:
+  - `AdminMaster@inventario.local`
+- 15 operarios esperados por baseline:
+  - `OperarioA1@inventario.local` hasta `OperarioA15@inventario.local`
+- 30 equipos con datos completos.
+- Claves esperadas:
+  - Admin: `ADMIN2026`
+  - Operarios: `OPERADOR2026`
+
+Script oficial de restauracion:
 
 ```bash
 cd backend
-npm install
+node scripts/seedAdminOperariosEquipos.js
 ```
 
-### Configurar variables de entorno
+## Validaciones ya realizadas
 
-Asegúrate de tener:
+- Compilacion NestJS: OK.
+- Unit tests: `npm test -- --runInBand` -> 6/6 OK.
+- E2E: `npm run test:e2e -- --runInBand` -> 16/16 OK.
+- Validaciones negativas cubiertas:
+  - login con usuario inexistente
+  - clave incorrecta
+  - login por endpoint de rol equivocado
+  - acceso sin token
+  - token invalido
+  - ID de equipo invalido
+  - equipo inexistente
+  - rol invalido en registro
+  - sector invalido
+  - `equipoId` invalido en historial
 
-```
-DATABASE_URL="postgresql://<user>:<pass>@localhost:5432/inventario_db"
-JWT_SECRET="tu_secreto"
-```
+## Flujo de trabajo para agentes
 
-### Levantar servidor (desarrollo)
+- Todo cambio que afecte al proyecto completo debe reflejarse aqui, en este agente general.
+- Cada colaborador mantiene ademas su agente personal como rama de trabajo documental.
+- Si un cambio personal impacta arquitectura, endpoints, reglas, scripts, baseline o pruebas, tambien debe actualizarse este agente general.
+- Antes de trabajar en una feature nueva, revisar este agente y luego el agente personal correspondiente.
 
-```bash
-npm run start:dev
-```
+## Agentes personales asociados
 
-### Pruebas
-
-```bash
-npm run test
-npm run test:e2e
-```
-
-## Puntos importantes para desarrollar nuevas features
-
-- Los datos se acceden a través de Prisma (usar `this.prisma.<modelo>`).
-- Si agregas nuevos campos en `schema.prisma`, recuerda correr `npx prisma migrate dev` y `npx prisma generate`.
-- Usa los guards (`JwtAuthGuard` + `RolesGuard`) para proteger rutas.
-- Si agregas nuevas rutas, actualiza los controladores y servicios correspondientes.
+- `killiam`: historial consolidado de lo ya implementado y validado.
+- `jaslin`: rama personal para futuros cambios de Jaslin.
+- `raul`: rama personal para futuros cambios de Raul.
