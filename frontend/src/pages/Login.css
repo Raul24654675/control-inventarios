@@ -1,0 +1,220 @@
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 32px 24px;
+  background: linear-gradient(180deg, #f8fcfa 0%, #edf5f1 45%, #f7fcfa 100%);
+  font-family: 'Segoe UI', 'Inter', 'Arial', sans-serif;
+}
+
+.login-logo-wrap {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.login-logo {
+  width: min(780px, 94vw);
+  height: auto;
+  object-fit: contain;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 520px;
+  border-radius: 24px;
+  padding: 30px 34px 32px;
+  border: 1px solid rgba(133, 160, 146, 0.35);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(4px);
+  box-shadow: 0 22px 55px rgba(38, 74, 60, 0.12);
+}
+
+.login-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  background: #e9f1ed;
+  border-radius: 14px;
+  padding: 4px;
+  margin-bottom: 22px;
+}
+
+.login-tab {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: transparent;
+  color: #5b7166;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.22s ease;
+}
+
+.login-tab:hover {
+  background: rgba(46, 74, 58, 0.08);
+}
+
+.login-tab.active {
+  background: #2e4a3a;
+  color: #f6fbf8;
+  box-shadow: 0 8px 18px rgba(46, 74, 58, 0.23);
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.field {
+  position: relative;
+}
+
+.field-input {
+  width: 100%;
+  height: 56px;
+  border-radius: 14px;
+  border: 1px solid #d4ddd8;
+  background: #f8fbf9;
+  color: #294339;
+  font-size: 0.96rem;
+  padding: 20px 46px 12px 44px;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, background 0.2s ease, transform 0.2s ease;
+}
+
+.field-input:hover {
+  border-color: #b6cac0;
+  background: #fbfefd;
+}
+
+.field:focus-within .field-input {
+  border-color: #2f7c65;
+  box-shadow: 0 0 0 4px rgba(52, 155, 128, 0.13), 0 10px 20px rgba(38, 101, 82, 0.1);
+  background: #ffffff;
+}
+
+.field-icon {
+  position: absolute;
+  left: 13px;
+  top: 16px;
+  width: 22px;
+  height: 22px;
+  color: #789186;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  transition: color 0.25s ease;
+}
+
+.field:focus-within .field-icon {
+  color: #2f7c65;
+}
+
+.field-label {
+  position: absolute;
+  left: 44px;
+  top: 18px;
+  color: #7c8f85;
+  font-size: 0.93rem;
+  line-height: 1;
+  transition: transform 0.2s ease, color 0.2s ease, font-size 0.2s ease;
+  pointer-events: none;
+  transform-origin: left top;
+}
+
+.field-input:focus + .field-label,
+.field-input:not(:placeholder-shown) + .field-label {
+  transform: translateY(-11px);
+  font-size: 0.72rem;
+  color: #2f7c65;
+}
+
+.field-line {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 6px;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2f7c65 0%, #37b5a0 50%, #2c7fd2 100%);
+  transform: scaleX(0);
+  transform-origin: center;
+  opacity: 0;
+  transition: transform 0.24s ease, opacity 0.24s ease;
+}
+
+.field:focus-within .field-line {
+  transform: scaleX(1);
+  opacity: 1;
+}
+
+.toggle-pass {
+  position: absolute;
+  right: 10px;
+  top: 13px;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  color: #6f857a;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.toggle-pass:hover {
+  background: rgba(48, 113, 93, 0.12);
+  color: #2f7c65;
+}
+
+.toggle-pass:active {
+  transform: scale(0.92);
+}
+
+.toggle-pass.active {
+  color: #2f7c65;
+}
+
+.login-submit {
+  margin-top: 4px;
+  height: 52px;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(120deg, #216d58 0%, #2fa280 52%, #2f8cd3 100%);
+  background-size: 180% 180%;
+  color: #f5fffb;
+  font-size: 0.97rem;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  box-shadow: 0 14px 30px rgba(42, 120, 99, 0.26);
+  transition: transform 0.2s ease, box-shadow 0.25s ease, background-position 0.4s ease, filter 0.2s ease;
+}
+
+.login-submit:hover {
+  transform: translateY(-1px);
+  background-position: 100% 0;
+  box-shadow: 0 18px 34px rgba(42, 120, 99, 0.34);
+  filter: saturate(1.05);
+}
+
+.login-submit:active {
+  transform: scale(0.98);
+}
+
+.login-submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.8;
+  box-shadow: none;
+}
