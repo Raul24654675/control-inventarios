@@ -7,12 +7,53 @@ description: "Use when: you need Raul's branch context for future edits, his wor
 
 Este agente queda preparado para que Raul cargue aqui sus cambios futuros.
 
-## Estado actual (actualizado 2026-03-29)
+## Estado actual (actualizado 2026-04-02)
 
 - Esta rama ya tiene cambios funcionales relevantes en backend, frontend y Prisma.
 - Debe partir del contexto compartido en `project-context` y validar alineacion con `killiam`.
 - El estado base actual incluye frontend React funcional en `frontend/`.
 - El branding visible del login usa `frontend/src/assets/rajaski-logo.svg`.
+- Se integraron cambios de diseno/UI de `RAMA_JASLIN` sobre `Rama_Raul`, preservando funcionalidades admin ya existentes.
+
+## Cambios recientes (2026-04-02)
+
+### 1) Integracion de ramas (Rama_Raul + RAMA_JASLIN)
+
+- Se incorporo el rediseño de frontend proveniente de `RAMA_JASLIN` y se mantuvieron capacidades funcionales de `Rama_Raul`.
+- Se unifico navegacion para soportar ambas rutas:
+	- `/usuarios` (gestion admin de usuarios)
+	- `/perfil` (perfil de usuario)
+- Se resolvieron conflictos de merge en:
+	- `frontend/src/App.tsx`
+	- `frontend/src/components/Layout.tsx`
+	- `frontend/src/pages/Equipos.tsx`
+	- `frontend/src/pages/Historial.tsx`
+
+### 2) UI/UX agregada desde RAMA_JASLIN
+
+- Nuevos/modificados para experiencia de perfil y layout:
+	- `frontend/src/pages/Profile.tsx`
+	- `frontend/src/pages/Profile.css`
+	- `frontend/src/profile-storage.ts`
+	- `frontend/src/useAuth.ts`
+	- `frontend/src/components/Layout.css`
+	- `frontend/src/App.css`
+	- `frontend/src/index.css`
+	- `frontend/src/main.tsx`
+- `Layout.tsx` quedo con menu de usuario (avatar, perfil, cerrar sesion) y opcion admin para ir a `Usuarios`.
+
+### 3) Correccion de textos con codificacion danada
+
+- Se corrigieron cadenas con caracteres extranos (mojibake) en:
+	- `frontend/src/pages/Login.tsx`
+	- `frontend/src/pages/Profile.tsx`
+- Objetivo: evitar textos tipo `sesi├│n`, `contrase├▒a` y mostrar strings legibles.
+
+### 4) Estado funcional tras integracion
+
+- Build backend OK.
+- Build frontend OK.
+- Rama limpia y sincronizada con remoto (`origin/Rama_Raul`) al cierre de la integracion.
 
 ## Resumen de cambios implementados hoy
 
@@ -95,10 +136,21 @@ Este agente queda preparado para que Raul cargue aqui sus cambios futuros.
 	- `backend/prisma/migrations/20260329190000_historial_equipo_set_null/migration.sql`
 - Frontend:
 	- `frontend/src/components/Layout.tsx`
+	- `frontend/src/components/Layout.css`
 	- `frontend/src/App.tsx`
+	- `frontend/src/App.css`
+	- `frontend/src/index.css`
+	- `frontend/src/main.tsx`
 	- `frontend/src/pages/Equipos.tsx`
+	- `frontend/src/pages/Equipos.css`
 	- `frontend/src/pages/Historial.tsx`
+	- `frontend/src/pages/Historial.css`
 	- `frontend/src/pages/Usuarios.tsx`
+	- `frontend/src/pages/Login.tsx`
+	- `frontend/src/pages/Profile.tsx`
+	- `frontend/src/pages/Profile.css`
+	- `frontend/src/profile-storage.ts`
+	- `frontend/src/useAuth.ts`
 
 ## Validaciones ejecutadas
 
@@ -161,3 +213,58 @@ Checklist express para IA:
 7. `npm --prefix frontend run dev`
 
 Si Raul encuentra un bloqueo nuevo de instalacion o versionado, documentarlo aqui y en el agente general para mantener continuidad entre maquinas.
+
+## Runbook para replicar en codigo totalmente distinto
+
+Objetivo: que una IA externa pueda llevar este comportamiento a otro repositorio aunque estructura, estilos y nombres cambien.
+
+### Fase A - Levantamiento inicial
+
+1. Identificar stack real del repositorio destino (framework backend, framework frontend, ORM, auth).
+2. Mapear equivalencias contra este proyecto:
+	- Auth/login/roles
+	- CRUD de equipos
+	- Historial de cambios
+	- Modulo de usuarios admin
+	- Perfil de usuario
+3. Detectar restricciones (nombres de tablas, convenciones API, tipado, router, UI kit).
+
+### Fase B - Portabilidad funcional minima (orden recomendado)
+
+1. Implementar roles y guardas equivalentes a `ADMIN` y `OPERADOR`.
+2. Implementar endpoints de usuarios:
+	- `GET /auth/users` con filtros `id`, `nombre`, `email`.
+	- `PATCH /auth/users/:id/password` restringido a admin y solo objetivo operador.
+3. Implementar historial robusto:
+	- Soportar eliminacion de equipo sin perder historial (FK nullable + `SetNull` o equivalente).
+	- Consolidar cambios multiples de update en un solo evento de historial.
+4. Implementar frontend de `Usuarios` (tabla, filtros, cambio de clave por modal).
+5. Implementar frontend de `Perfil` y menu de usuario en layout.
+6. Corregir textos/encoding en todas las vistas para evitar mojibake.
+
+### Fase C - UI parity minima
+
+1. Garantizar rutas funcionales:
+	- `/equipos`
+	- `/historial`
+	- `/usuarios` (solo admin)
+	- `/perfil`
+2. Validar que la navegacion no rompa por cambios de provider/auth hook.
+3. Mantener consistencia visual sin exigir pixel-perfect (priorizar comportamiento).
+
+### Fase D - Criterios de aceptacion (Done)
+
+1. Login admin y operador funcional.
+2. Admin puede listar usuarios filtrando por ID parcial, nombre y correo.
+3. Admin puede cambiar clave de operador y backend rechaza clave repetida.
+4. Historial muestra creacion, actualizacion consolidada y eliminacion sin romper cuando equipo fue borrado.
+5. Frontend compila y backend compila en entorno destino.
+6. Sin textos corruptos de codificacion en UI.
+
+### Entregables minimos que la nueva IA debe dejar
+
+1. Lista de archivos modificados en backend y frontend del repo destino.
+2. Lista de endpoints nuevos/ajustados con reglas de autorizacion.
+3. Migraciones o cambios de esquema aplicados.
+4. Evidencia de build/test basicos ejecutados.
+5. Notas de diferencias inevitables respecto a este repo (si las hay).

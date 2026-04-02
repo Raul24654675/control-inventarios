@@ -46,7 +46,7 @@ export default function Login() {
       navigate('/equipos', { replace: true })
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      setError(msg ?? 'Error al iniciar sesi├│n')
+      setError(msg ?? 'Error al iniciar sesion')
     } finally {
       setLoading(false)
     }
@@ -112,11 +112,11 @@ export default function Login() {
               placeholder=" "
               required
             />
-            <label htmlFor="login-password" className="field-label">Ingresa tu contrase├▒a</label>
+            <label htmlFor="login-password" className="field-label">Ingresa tu contrasena</label>
             <button
               type="button"
               className={`toggle-pass ${showPassword ? 'active' : ''}`}
-              aria-label={showPassword ? 'Ocultar contrase├▒a' : 'Mostrar contrase├▒a'}
+              aria-label={showPassword ? 'Ocultar contrasena' : 'Mostrar contrasena'}
               onClick={() => setShowPassword(s => !s)}
             >
               {showPassword ? (
@@ -138,7 +138,7 @@ export default function Login() {
 
           {error && <div className="error-box">{error}</div>}
           <button type="submit" disabled={loading} className="login-submit">
-            {loading ? 'Ingresando...' : 'Iniciar sesi├│n'}
+            {loading ? 'Ingresando...' : 'Iniciar sesion'}
           </button>
         </form>
       </div>
