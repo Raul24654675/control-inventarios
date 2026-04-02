@@ -1,6 +1,6 @@
 export type Rol = 'ADMIN' | 'OPERADOR'
-export type Sector = 'ELECTRICA' | 'NEUMATICA' | 'MECANICA'
-export type Estado = 'ACTIVO' | 'INACTIVO' | 'MANTENIMIENTO'
+export type Sector = 'Electrica' | 'Neumatica' | 'Electronica'
+export type Estado = 'Activo' | 'Inactivo' | 'EnMantenimiento'
 
 export interface Usuario {
   id: number

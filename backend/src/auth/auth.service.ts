@@ -75,12 +75,12 @@ export class AuthService {
 
     if (!user) throw new UnauthorizedException(ERROR_MESSAGES.AUTH.USER_NOT_FOUND);
 
-    const valid = await bcrypt.compare(password, user.password);
-
-    if (!valid) throw new UnauthorizedException(ERROR_MESSAGES.AUTH.WRONG_PASSWORD);
     if (user.rol !== role) {
       throw new UnauthorizedException(ERROR_MESSAGES.AUTH.ROLE_ACTION_MISMATCH);
     }
+
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) throw new UnauthorizedException(ERROR_MESSAGES.AUTH.WRONG_PASSWORD);
 
     const payload = {
       sub: user.id,
@@ -99,5 +99,66 @@ export class AuthService {
 
   async loginOperador(email: string, password: string) {
     return this.loginByRole(email, password, 'OPERADOR');
+  }
+
+  async listUsers(filters: { id?: string; nombre?: string; email?: string } = {}) {
+    const where: any = {};
+
+    if (filters.nombre) {
+      where.nombre = { contains: filters.nombre, mode: 'insensitive' };
+    }
+    if (filters.email) {
+      where.email = { contains: filters.email, mode: 'insensitive' };
+    }
+
+    const users = await this.prisma.usuario.findMany({
+      where,
+      select: {
+        id: true,
+        nombre: true,
+        email: true,
+        rol: true,
+        creadoEn: true,
+      },
+      orderBy: {
+        id: 'asc',
+      },
+    });
+
+    if (!filters.id) {
+      return users;
+    }
+
+    return users.filter((user) => String(user.id).includes(filters.id as string));
+  }
+
+  async updateOperadorPassword(userId: number, newPassword?: string) {
+    if (!newPassword || !newPassword.trim()) {
+      throw new BadRequestException(ERROR_MESSAGES.AUTH.PASSWORD_REQUIRED);
+    }
+
+    const plainPassword = newPassword.trim();
+
+    const user = await this.prisma.usuario.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.USER_NOT_FOUND);
+    }
+    if (user.rol !== 'OPERADOR') {
+      throw new BadRequestException(ERROR_MESSAGES.AUTH.PASSWORD_TARGET_MUST_BE_OPERADOR);
+    }
+
+    const isSamePassword = await bcrypt.compare(plainPassword, user.password);
+    if (isSamePassword) {
+      throw new BadRequestException('ingresa una contraseña diferente a la actual');
+    }
+
+    const hashedPassword = await bcrypt.hash(plainPassword, 10);
+
+    await this.prisma.usuario.update({
+      where: { id: userId },
+      data: { password: hashedPassword },
+    });
+
+    return { message: 'Clave actualizada correctamente' };
   }
 }

@@ -1,6 +1,5 @@
 import { IsOptional, IsIn, IsString, IsInt, Min } from 'class-validator';
 import { Type } from 'class-transformer';
-import { Sector, Estado } from '@prisma/client';
 
 export class FindEquiposDto {
   @IsOptional()
@@ -10,16 +9,16 @@ export class FindEquiposDto {
   id?: number;
 
   @IsOptional()
-  @IsIn(['ELECTRICA', 'NEUMATICA', 'MECANICA'], {
-    message: 'Sector invalido. Valores permitidos: ELECTRICA, NEUMATICA, MECANICA',
+  @IsIn(['Electrica', 'Neumatica', 'Electronica', 'ELECTRICA', 'NEUMATICA', 'MECANICA'], {
+    message: 'Sector invalido. Valores permitidos: Electrica, Neumatica, Electronica',
   })
-  sector?: Sector;
+  sector?: string;
 
   @IsOptional()
-  @IsIn(['ACTIVO', 'INACTIVO', 'MANTENIMIENTO'], {
-    message: 'Estado invalido. Valores permitidos: ACTIVO, INACTIVO, MANTENIMIENTO',
+  @IsIn(['Activo', 'Inactivo', 'EnMantenimiento', 'En mantenimiento', 'ACTIVO', 'INACTIVO', 'MANTENIMIENTO'], {
+    message: 'Estado invalido. Valores permitidos: Activo, Inactivo, En mantenimiento',
   })
-  estado?: Estado;
+  estado?: string;
 
   @IsOptional()
   @IsString({ message: 'El nombre debe ser texto' })

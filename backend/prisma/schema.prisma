@@ -39,8 +39,8 @@ model Equipo {
 
 model HistorialCambios {
   id            Int      @id @default(autoincrement())
-  equipo        Equipo   @relation(fields: [equipoId], references: [id])
-  equipoId      Int
+  equipo        Equipo?  @relation(fields: [equipoId], references: [id], onDelete: SetNull)
+  equipoId      Int?
   usuario       Usuario  @relation(fields: [usuarioId], references: [id])
   usuarioId     Int
   campo         String
@@ -55,13 +55,13 @@ enum Rol {
 }
 
 enum Sector {
-  ELECTRICA
-  NEUMATICA
-  MECANICA
+  Electrica
+  Neumatica
+  Electronica
 }
 
 enum Estado {
-  ACTIVO
-  INACTIVO
-  MANTENIMIENTO
+  Activo
+  Inactivo
+  EnMantenimiento @map("En mantenimiento")
 }
