@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
-import { useAuth } from '../AuthContext'
+import { useAuth } from '../useAuth'
 import type { Rol } from '../types'
 import rajaskiLogo from '../assets/rajaski-logo.svg'
 import './Login.css'
