@@ -2,10 +2,10 @@
 CREATE TYPE "Rol" AS ENUM ('ADMIN', 'OPERADOR');
 
 -- CreateEnum
-CREATE TYPE "Sector" AS ENUM ('ELECTRICA', 'NEUMATICA', 'MECANICA');
+CREATE TYPE "Sector" AS ENUM ('Electrica', 'Neumatica', 'Electronica');
 
 -- CreateEnum
-CREATE TYPE "Estado" AS ENUM ('ACTIVO', 'INACTIVO', 'MANTENIMIENTO');
+CREATE TYPE "Estado" AS ENUM ('Activo', 'Inactivo', 'En mantenimiento');
 
 -- CreateTable
 CREATE TABLE "Usuario" (
@@ -36,7 +36,7 @@ CREATE TABLE "Equipo" (
 -- CreateTable
 CREATE TABLE "HistorialCambios" (
     "id" SERIAL NOT NULL,
-    "equipoId" INTEGER NOT NULL,
+    "equipoId" INTEGER,
     "usuarioId" INTEGER NOT NULL,
     "campo" TEXT NOT NULL,
     "valorAnterior" TEXT,
@@ -50,7 +50,7 @@ CREATE TABLE "HistorialCambios" (
 CREATE UNIQUE INDEX "Usuario_email_key" ON "Usuario"("email");
 
 -- AddForeignKey
-ALTER TABLE "HistorialCambios" ADD CONSTRAINT "HistorialCambios_equipoId_fkey" FOREIGN KEY ("equipoId") REFERENCES "Equipo"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "HistorialCambios" ADD CONSTRAINT "HistorialCambios_equipoId_fkey" FOREIGN KEY ("equipoId") REFERENCES "Equipo"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "HistorialCambios" ADD CONSTRAINT "HistorialCambios_usuarioId_fkey" FOREIGN KEY ("usuarioId") REFERENCES "Usuario"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

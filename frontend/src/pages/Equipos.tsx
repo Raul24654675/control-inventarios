@@ -3,22 +3,92 @@ import api from '../api'
 import { useAuth } from '../AuthContext'
 import type { Equipo, Sector, Estado } from '../types'
 
-const SECTORES: Sector[] = ['ELECTRICA', 'NEUMATICA', 'MECANICA']
-const ESTADOS: Estado[] = ['ACTIVO', 'INACTIVO', 'MANTENIMIENTO']
+const SECTORES: Sector[] = ['Electrica', 'Neumatica', 'Electronica']
+const ESTADOS: Estado[] = ['Activo', 'Inactivo', 'EnMantenimiento']
+const BLOQUES = ['A', 'B', 'ALMACEN'] as const
+const AULAS = ['201', '202', '203', '204', '301', '302', '303', '304'] as const
+
+function splitUbicacion(ubicacion: string) {
+  const raw = (ubicacion ?? '').trim().toUpperCase()
+
+  if (!raw) {
+    return { aula: '', bloque: '' }
+  }
+
+  if (raw === 'EN ALMACEN') {
+    return { aula: '', bloque: 'ALMACEN' }
+  }
+
+  // Internal partial state: "-A", "-B", "-ALMACEN"
+  if (raw.startsWith('-')) {
+    const bloque = raw.slice(1)
+    if (bloque === 'A' || bloque === 'B' || bloque === 'ALMACEN') {
+      return { aula: '', bloque }
+    }
+    return { aula: '', bloque: '' }
+  }
+
+  // Internal partial state: "201-"
+  if (raw.endsWith('-')) {
+    const aula = raw.slice(0, -1)
+    if (AULAS.includes(aula as (typeof AULAS)[number])) {
+      return { aula, bloque: '' }
+    }
+    return { aula: '', bloque: '' }
+  }
+
+  const parts = raw.split('-')
+  if (parts.length !== 2) {
+    // Legacy values from DB are ignored in selector UI.
+    return { aula: '', bloque: '' }
+  }
+
+  const [aula, bloque] = parts
+  const aulaValida = AULAS.includes(aula as (typeof AULAS)[number])
+  const bloqueValido = bloque === 'A' || bloque === 'B'
+
+  if (!aulaValida || !bloqueValido) {
+    return { aula: '', bloque: '' }
+  }
+
+  return { aula, bloque }
+}
+
+function buildUbicacion(aula: string, bloque: string) {
+  if (bloque === 'ALMACEN') return 'EN ALMACEN'
+  if (!aula && !bloque) return ''
+  if (!aula && bloque) return `-${bloque}`
+  if (aula && !bloque) return `${aula}-`
+  return `${aula}-${bloque}`
+}
+
+function formatUbicacionLabel(ubicacion?: string | null) {
+  if (!ubicacion) return '—'
+  return ubicacion === 'EN ALMACEN' ? 'En almacén' : ubicacion
+}
+
+function formatEstadoLabel(estado: Estado | string) {
+  if (estado === 'EnMantenimiento') return 'En mantenimiento'
+  if (estado === 'ACTIVO') return 'Activo'
+  if (estado === 'INACTIVO') return 'Inactivo'
+  if (estado === 'MANTENIMIENTO') return 'En mantenimiento'
+  return estado
+}
 
 const estadoTag: Record<Estado, string> = {
-  ACTIVO: 'tag-activo',
-  INACTIVO: 'tag-inactivo',
-  MANTENIMIENTO: 'tag-mant',
+  Activo: 'tag-activo',
+  Inactivo: 'tag-inactivo',
+  EnMantenimiento: 'tag-mant',
 }
 
 const sectorTag: Record<Sector, string> = {
-  ELECTRICA: 'tag-electrica',
-  NEUMATICA: 'tag-neumatica',
-  MECANICA: 'tag-mecanica',
+  Electrica: 'tag-electrica',
+  Neumatica: 'tag-neumatica',
+  Electronica: 'tag-mecanica',
 }
 
 interface Filters {
+  id: string
   nombre: string
   sector: string
   estado: string
@@ -27,7 +97,7 @@ interface Filters {
   limit: number
 }
 
-const EMPTY_FILTERS: Filters = { nombre: '', sector: '', estado: '', ubicacion: '', page: 1, limit: 15 }
+const EMPTY_FILTERS: Filters = { id: '', nombre: '', sector: '', estado: '', ubicacion: '', page: 1, limit: 15 }
 
 interface EquipoForm {
   nombre: string
@@ -37,7 +107,7 @@ interface EquipoForm {
   ubicacion: string
 }
 
-const EMPTY_FORM: EquipoForm = { nombre: '', sector: 'ELECTRICA', estado: 'ACTIVO', descripcion: '', ubicacion: '' }
+const EMPTY_FORM: EquipoForm = { nombre: '', sector: 'Electrica', estado: 'Activo', descripcion: '', ubicacion: '' }
 
 export default function Equipos() {
   const { rol } = useAuth()
@@ -54,11 +124,15 @@ export default function Equipos() {
   const [formError, setFormError] = useState('')
   const [formLoading, setFormLoading] = useState(false)
 
-  async function load(f: Filters = filters) {
+  const { aula: filtroAula, bloque: filtroBloque } = splitUbicacion(filters.ubicacion)
+  const { aula: formAula, bloque: formBloque } = splitUbicacion(form.ubicacion)
+
+  async function load(f: Filters) {
     setLoading(true)
     setError('')
     try {
       const params = new URLSearchParams()
+      if (f.id) params.set('id', f.id)
       if (f.nombre) params.set('nombre', f.nombre)
       if (f.sector) params.set('sector', f.sector)
       if (f.estado) params.set('estado', f.estado)
@@ -74,18 +148,12 @@ export default function Equipos() {
     }
   }
 
-  useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  function applyFilters(e: FormEvent) {
-    e.preventDefault()
-    const next = { ...filters, page: 1 }
-    setFilters(next)
-    load(next)
-  }
+  useEffect(() => {
+    load(filters)
+  }, [filters.id, filters.nombre, filters.sector, filters.estado, filters.ubicacion, filters.page, filters.limit])
 
   function clearFilters() {
     setFilters(EMPTY_FILTERS)
-    load(EMPTY_FILTERS)
   }
 
   function openCreate() {
@@ -112,7 +180,7 @@ export default function Equipos() {
     if (!confirm('¿Eliminar este equipo? Esta acción no se puede deshacer.')) return
     try {
       await api.delete(`/equipos/${id}`)
-      load()
+      load(filters)
     } catch {
       alert('No se pudo eliminar el equipo.')
     }
@@ -121,15 +189,31 @@ export default function Equipos() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setFormError('')
+    const ubicacionPayload =
+      formBloque === 'ALMACEN'
+        ? 'EN ALMACEN'
+        : formAula && formBloque
+          ? `${formAula}-${formBloque}`
+          : ''
+
+    if (!editing) {
+      if (!ubicacionPayload || !form.descripcion.trim()) {
+        setFormError('Para crear equipo debes completar ubicacion y descripcion.')
+        return
+      }
+    }
+
     setFormLoading(true)
     try {
+      const payload = { ...form, descripcion: form.descripcion.trim(), ubicacion: ubicacionPayload }
+
       if (editing) {
-        await api.patch(`/equipos/${editing.id}`, form)
+        await api.patch(`/equipos/${editing.id}`, payload)
       } else {
-        await api.post('/equipos', form)
+        await api.post('/equipos', payload)
       }
       setShowForm(false)
-      load()
+      load(filters)
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
       setFormError(msg ?? 'Error al guardar el equipo.')
@@ -147,38 +231,69 @@ export default function Equipos() {
         )}
       </div>
 
-      <form onSubmit={applyFilters} style={styles.filters}>
+      <div style={styles.filters}>
+        <input
+          type="text"
+          inputMode="numeric"
+          placeholder="ID"
+          value={filters.id}
+          onChange={e => {
+            const onlyDigits = e.target.value.replace(/\D/g, '')
+            setFilters(f => ({ ...f, id: onlyDigits, page: 1 }))
+          }}
+          style={styles.filterInput}
+        />
         <input
           placeholder="Nombre"
           value={filters.nombre}
-          onChange={e => setFilters(f => ({ ...f, nombre: e.target.value }))}
+          onChange={e => setFilters(f => ({ ...f, nombre: e.target.value, page: 1 }))}
           style={styles.filterInput}
         />
         <select
           value={filters.sector}
-          onChange={e => setFilters(f => ({ ...f, sector: e.target.value }))}
+          onChange={e => setFilters(f => ({ ...f, sector: e.target.value, page: 1 }))}
           style={styles.filterInput}
         >
-          <option value="">Todos los sectores</option>
+          <option value="">Todas las categorias</option>
           {SECTORES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
         <select
           value={filters.estado}
-          onChange={e => setFilters(f => ({ ...f, estado: e.target.value }))}
+          onChange={e => setFilters(f => ({ ...f, estado: e.target.value, page: 1 }))}
           style={styles.filterInput}
         >
           <option value="">Todos los estados</option>
-          {ESTADOS.map(s => <option key={s} value={s}>{s}</option>)}
+          {ESTADOS.map(s => <option key={s} value={s}>{formatEstadoLabel(s)}</option>)}
         </select>
-        <input
-          placeholder="Ubicación"
-          value={filters.ubicacion}
-          onChange={e => setFilters(f => ({ ...f, ubicacion: e.target.value }))}
+        <select
+          value={filtroBloque}
+          onChange={e => {
+            const bloque = e.target.value
+            setFilters(f => ({ ...f, ubicacion: buildUbicacion(filtroAula, bloque), page: 1 }))
+          }}
           style={styles.filterInput}
-        />
-        <button type="submit" className="btn-primary">Filtrar</button>
+        >
+          <option value="">Todas las ubicaciones</option>
+          {BLOQUES.map(b => (
+            <option key={b} value={b}>
+              {b === 'ALMACEN' ? 'En almacén' : `Bloque ${b}`}
+            </option>
+          ))}
+        </select>
+        <select
+          value={filtroAula}
+          onChange={e => {
+            const aula = e.target.value
+            setFilters(f => ({ ...f, ubicacion: buildUbicacion(aula, filtroBloque), page: 1 }))
+          }}
+          disabled={!filtroBloque || filtroBloque === 'ALMACEN'}
+          style={styles.filterInput}
+        >
+          <option value="">Todas las aulas</option>
+          {AULAS.map(a => <option key={a} value={a}>{a}</option>)}
+        </select>
         <button type="button" className="btn-ghost" onClick={clearFilters}>Limpiar</button>
-      </form>
+      </div>
 
       {error && <div className="error-box">{error}</div>}
 
@@ -193,7 +308,7 @@ export default function Equipos() {
               <tr>
                 <th>ID</th>
                 <th>Nombre</th>
-                <th>Sector</th>
+                <th>Categoria</th>
                 <th>Estado</th>
                 <th>Ubicación</th>
                 {isAdmin && <th>Acciones</th>}
@@ -205,8 +320,8 @@ export default function Equipos() {
                   <td style={{ color: 'var(--muted)', fontSize: '.85rem' }}>{eq.id}</td>
                   <td style={{ fontWeight: 600 }}>{eq.nombre}</td>
                   <td><span className={`tag ${sectorTag[eq.sector]}`}>{eq.sector}</span></td>
-                  <td><span className={`tag ${estadoTag[eq.estado]}`}>{eq.estado}</span></td>
-                  <td style={{ color: 'var(--muted)', fontSize: '.88rem' }}>{eq.ubicacion ?? '—'}</td>
+                  <td><span className={`tag ${estadoTag[eq.estado]}`}>{formatEstadoLabel(eq.estado)}</span></td>
+                  <td style={{ color: 'var(--muted)', fontSize: '.88rem' }}>{formatUbicacionLabel(eq.ubicacion)}</td>
                   {isAdmin && (
                     <td>
                       <div style={{ display: 'flex', gap: '8px' }}>
@@ -232,7 +347,7 @@ export default function Equipos() {
           disabled={filters.page <= 1}
           onClick={() => {
             const next = { ...filters, page: filters.page - 1 }
-            setFilters(next); load(next)
+            setFilters(next)
           }}
           style={{ padding: '6px 14px' }}
         >
@@ -244,7 +359,7 @@ export default function Equipos() {
           disabled={equipos.length < filters.limit}
           onClick={() => {
             const next = { ...filters, page: filters.page + 1 }
-            setFilters(next); load(next)
+            setFilters(next)
           }}
           style={{ padding: '6px 14px' }}
         >
@@ -262,12 +377,13 @@ export default function Equipos() {
                 <input
                   value={form.nombre}
                   onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
+                  placeholder="ingresa el nombre del equipo"
                   required
                 />
               </label>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <label style={styles.label}>
-                  Sector *
+                  Categoria *
                   <select
                     value={form.sector}
                     onChange={e => setForm(f => ({ ...f, sector: e.target.value as Sector }))}
@@ -283,25 +399,59 @@ export default function Equipos() {
                     onChange={e => setForm(f => ({ ...f, estado: e.target.value as Estado }))}
                     disabled={!isAdmin && !!editing}
                   >
-                    {ESTADOS.map(s => <option key={s} value={s}>{s}</option>)}
+                    {ESTADOS.map(s => <option key={s} value={s}>{formatEstadoLabel(s)}</option>)}
                   </select>
                 </label>
               </div>
               <label style={styles.label}>
-                Ubicación
-                <input
-                  value={form.ubicacion}
-                  onChange={e => setForm(f => ({ ...f, ubicacion: e.target.value }))}
-                />
+                Ubicacion {editing ? '' : '*'}
+                <select
+                  value={formBloque}
+                  onChange={e => {
+                    const bloque = e.target.value
+                    setForm(f => ({ ...f, ubicacion: buildUbicacion(formAula, bloque) }))
+                  }}
+                >
+                  <option value="" disabled>Selecciona bloque</option>
+                  {BLOQUES.map(b => (
+                    <option key={b} value={b}>
+                      {b === 'ALMACEN' ? 'En almacén' : `Bloque ${b}`}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label style={styles.label}>
-                Descripción
+                Aula
+                {formBloque === 'ALMACEN' ? (
+                  <input value="Ubicado en el almacén" disabled />
+                ) : (
+                  <select
+                    value={formAula}
+                    onChange={e => {
+                      const aula = e.target.value
+                      setForm(f => ({ ...f, ubicacion: buildUbicacion(aula, formBloque) }))
+                    }}
+                    disabled={!formBloque}
+                  >
+                    <option value="" disabled>Selecciona aula</option>
+                    {AULAS.map(a => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                )}
+              </label>
+              <label style={styles.label}>
+                Descripción {editing ? '' : '*'}
                 <input
                   value={form.descripcion}
                   onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
+                  placeholder="ingresa una descripcion del equipo"
+                  required={!editing}
                 />
               </label>
-              {formError && <div className="error-box">{formError}</div>}
+              <div style={styles.infoBox}>
+                Debes completar nombre, descripcion, ubicacion y aula para guardar el equipo.
+                Si eliges "En almacén", no es necesario seleccionar aula.
+              </div>
+              {formError && <div className="error-box" style={styles.formErrorBox}>{formError}</div>}
               <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
                 <button type="submit" className="btn-primary" disabled={formLoading} style={{ flex: 1, borderRadius: '10px' }}>
                   {formLoading ? 'Guardando...' : 'Guardar'}
@@ -356,4 +506,15 @@ const styles: Record<string, React.CSSProperties> = {
   },
   modalForm: { display: 'flex', flexDirection: 'column', gap: '14px' },
   label: { display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '0.85rem', color: 'var(--muted)' },
+  formErrorBox: { marginTop: '-4px', marginBottom: '2px' },
+  infoBox: {
+    marginBottom: '14px',
+    padding: '10px 12px',
+    borderRadius: '10px',
+    border: '1px solid #c7e4f7',
+    background: '#eef7ff',
+    color: '#1f4f73',
+    fontSize: '0.86rem',
+    lineHeight: 1.35,
+  },
 }

@@ -27,6 +27,14 @@ export default function Layout() {
           >
             Historial
           </NavLink>
+          {rol === 'ADMIN' && (
+            <NavLink
+              to="/usuarios"
+              style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.linkActive : {}) })}
+            >
+              Usuarios
+            </NavLink>
+          )}
         </nav>
         <div style={styles.user}>
           <span style={styles.chip}>{rol}</span>

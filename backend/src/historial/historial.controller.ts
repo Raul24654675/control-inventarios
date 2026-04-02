@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Delete,
   Query,
   UseGuards,
   BadRequestException,
@@ -27,5 +28,11 @@ export class HistorialController {
       return this.historialService.findByEquipo(parsed);
     }
     return this.historialService.findAll();
+  }
+
+  @Roles('ADMIN')
+  @Delete()
+  clearAll() {
+    return this.historialService.clearAll();
   }
 }

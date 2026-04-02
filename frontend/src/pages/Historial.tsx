@@ -1,12 +1,18 @@
 import { useEffect, useState } from 'react'
 import api from '../api'
 import type { HistorialEntry } from '../types'
+import { useAuth } from '../AuthContext'
 
 export default function Historial() {
+  const { rol } = useAuth()
+  const isAdmin = rol === 'ADMIN'
+
   const [entries, setEntries] = useState<HistorialEntry[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [equipoId, setEquipoId] = useState('')
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false)
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   async function load(id?: string) {
     setLoading(true)
@@ -24,6 +30,20 @@ export default function Historial() {
 
   useEffect(() => { load() }, [])
 
+  async function handleClearHistorial() {
+    setDeleteLoading(true)
+    try {
+      await api.delete('/historial')
+      setShowConfirmDelete(false)
+      setEquipoId('')
+      load()
+    } catch {
+      setError('No se pudo eliminar el historial.')
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
   function accionBadge(accion: string) {
     const map: Record<string, React.CSSProperties> = {
       CREACION: { background: '#d4edda', color: '#1a5c2e' },
@@ -40,19 +60,46 @@ export default function Historial() {
     } as React.CSSProperties
   }
 
-  function formatCambios(cambios: HistorialEntry['cambios']) {
-    const { valorAnterior, valorNuevo } = cambios
-    if (valorAnterior === null && valorNuevo === null) return '—'
-    if (typeof valorAnterior === 'object' && typeof valorNuevo === 'object') {
-      return JSON.stringify(valorNuevo ?? {})
+  function formatCambios(entry: HistorialEntry) {
+    if (entry.accion === 'CREACION') return 'Equipo creado'
+    if (entry.accion === 'ELIMINACION') return 'Equipo eliminado'
+
+    const { valorAnterior, valorNuevo } = entry.cambios
+
+    const toText = (value: unknown) => (value === null || value === undefined ? '—' : String(value))
+
+    if (
+      valorAnterior !== null &&
+      valorNuevo !== null &&
+      typeof valorAnterior === 'object' &&
+      typeof valorNuevo === 'object'
+    ) {
+      const anteriorObj = valorAnterior as Record<string, unknown>
+      const nuevoObj = valorNuevo as Record<string, unknown>
+      const keys = Array.from(new Set([...Object.keys(anteriorObj), ...Object.keys(nuevoObj)]))
+
+      if (keys.length === 0) return '—'
+
+      return keys
+        .map((key) => `${key}: ${toText(anteriorObj[key])} -> ${toText(nuevoObj[key])}`)
+        .join('\n')
     }
-    return `${String(valorAnterior ?? '—')} → ${String(valorNuevo ?? '—')}`
+
+    const anteriorTexto = toText(valorAnterior)
+    const nuevoTexto = toText(valorNuevo)
+
+    return `${anteriorTexto} -> ${nuevoTexto}`
   }
 
   return (
     <div style={styles.page}>
       <div style={styles.toolbar}>
         <h2 style={{ margin: 0 }}>Historial de cambios</h2>
+        {isAdmin && (
+          <button className="btn-danger" onClick={() => setShowConfirmDelete(true)}>
+            Borrar historial
+          </button>
+        )}
       </div>
 
       <div style={styles.filterBar}>
@@ -78,7 +125,7 @@ export default function Historial() {
         {loading ? (
           <p style={{ padding: '20px', color: 'var(--muted)' }}>Cargando...</p>
         ) : entries.length === 0 ? (
-          <p style={{ padding: '20px', color: 'var(--muted)' }}>No hay registros de historial.</p>
+          <p style={{ padding: '20px', color: 'var(--muted)' }}>historial vacio</p>
         ) : (
           <table>
             <thead>
@@ -100,8 +147,8 @@ export default function Historial() {
                   <td><span style={accionBadge(e.accion)}>{e.accion}</span></td>
                   <td style={{ fontWeight: 600 }}>{e.equipo.nombre}</td>
                   <td style={{ fontSize: '.88rem', color: 'var(--muted)' }}>{e.campo}</td>
-                  <td style={{ fontSize: '.84rem', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {formatCambios(e.cambios)}
+                  <td style={{ fontSize: '.84rem', maxWidth: '320px', whiteSpace: 'pre-line' }}>
+                    {formatCambios(e)}
                   </td>
                   <td style={{ fontSize: '.85rem' }}>
                     <div style={{ fontWeight: 600 }}>{e.realizadoPor.nombre}</div>
@@ -113,6 +160,31 @@ export default function Historial() {
           </table>
         )}
       </div>
+
+      {showConfirmDelete && (
+        <div style={styles.overlay} onClick={() => setShowConfirmDelete(false)}>
+          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <p style={{ margin: 0, fontWeight: 600 }}>
+              {entries.length === 0 ? 'historial vacio' : 'Seguro que quiere eliminar el historial'}
+            </p>
+            <div style={styles.modalActions}>
+              {entries.length > 0 ? (
+                <button
+                  className="btn-danger"
+                  onClick={handleClearHistorial}
+                  disabled={deleteLoading}
+                >
+                  {deleteLoading ? 'Eliminando...' : 'Aceptar'}
+                </button>
+              ) : (
+                <button className="btn-ghost" onClick={() => setShowConfirmDelete(false)}>
+                  Cerrar
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -135,5 +207,28 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '14px',
     border: '1px solid var(--border)',
     overflow: 'hidden',
+  },
+  overlay: {
+    position: 'fixed',
+    inset: 0,
+    background: 'rgba(20,30,32,.45)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 300,
+  },
+  modal: {
+    background: '#fff',
+    borderRadius: '14px',
+    padding: '20px',
+    width: '100%',
+    maxWidth: '420px',
+    border: '1px solid var(--border)',
+    boxShadow: '0 18px 40px rgba(20,30,32,.25)',
+  },
+  modalActions: {
+    marginTop: '14px',
+    display: 'flex',
+    justifyContent: 'flex-end',
   },
 }
