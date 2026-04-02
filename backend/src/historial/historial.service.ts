@@ -21,12 +21,27 @@ export class HistorialService {
     return 'ACTUALIZACION';
   }
 
+  private extractEquipoFallback(anteriorRaw: any, nuevoRaw: any) {
+    const anterior = anteriorRaw && typeof anteriorRaw === 'object' ? anteriorRaw : null;
+    const nuevo = nuevoRaw && typeof nuevoRaw === 'object' ? nuevoRaw : null;
+    const base = nuevo ?? anterior ?? {};
+
+    return {
+      id: typeof base.id === 'number' ? base.id : undefined,
+      nombre: typeof base.nombre === 'string' ? base.nombre : undefined,
+      sector: typeof base.sector === 'string' ? base.sector : undefined,
+      estado: typeof base.estado === 'string' ? base.estado : undefined,
+      ubicacion: typeof base.ubicacion === 'string' ? base.ubicacion : undefined,
+    };
+  }
+
   private mapEntry(item: any) {
     const accion = this.normalizeAccion(item.campo);
     const anteriorRaw = this.parseJsonSafe(item.valorAnterior);
     const nuevoRaw = this.parseJsonSafe(item.valorNuevo);
     const anterior = accion === 'CREACION' && anteriorRaw == null ? {} : anteriorRaw;
     const nuevo = accion === 'ELIMINACION' && nuevoRaw == null ? {} : nuevoRaw;
+    const equipoFallback = this.extractEquipoFallback(anteriorRaw, nuevoRaw);
 
     return {
       id: item.id,
@@ -34,11 +49,11 @@ export class HistorialService {
       accion,
       campo: item.campo,
       equipo: {
-        id: item.equipo?.id,
-        nombre: item.equipo?.nombre,
-        sector: item.equipo?.sector,
-        estado: item.equipo?.estado,
-        ubicacion: item.equipo?.ubicacion,
+        id: item.equipo?.id ?? equipoFallback.id,
+        nombre: item.equipo?.nombre ?? equipoFallback.nombre,
+        sector: item.equipo?.sector ?? equipoFallback.sector,
+        estado: item.equipo?.estado ?? equipoFallback.estado,
+        ubicacion: item.equipo?.ubicacion ?? equipoFallback.ubicacion,
       },
       realizadoPor: {
         id: item.usuario?.id,
@@ -58,7 +73,6 @@ export class HistorialService {
     const data = await this.prisma.historialCambios.findMany({
       orderBy: { fecha: 'desc' },
       include: {
-        equipo: true,
         usuario: {
           select: {
             id: true,
@@ -78,7 +92,6 @@ export class HistorialService {
       where: { equipoId },
       orderBy: { fecha: 'desc' },
       include: {
-        equipo: true,
         usuario: {
           select: {
             id: true,
@@ -91,5 +104,13 @@ export class HistorialService {
     });
 
     return data.map((item) => this.mapEntry(item));
+  }
+
+  async clearAll() {
+    const result = await this.prisma.historialCambios.deleteMany({});
+    return {
+      message: 'Historial eliminado correctamente',
+      deletedCount: result.count,
+    };
   }
 }

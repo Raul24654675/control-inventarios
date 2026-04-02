@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Get, Query, BadRequestException, Patch, Param } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { RolesGuard } from './roles.guard';
@@ -25,5 +25,34 @@ export class AuthController {
   @Post('login/operador')
   loginOperador(@Body() data: any) {
     return this.authService.loginOperador(data.email, data.password);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @Get('users')
+  listUsers(@Query('id') id?: string, @Query('nombre') nombre?: string, @Query('email') email?: string) {
+    if (id !== undefined && id !== '') {
+      if (!/^\d+$/.test(id)) {
+        throw new BadRequestException('El id solo puede contener numeros');
+      }
+    }
+
+    return this.authService.listUsers({
+      id,
+      nombre,
+      email,
+    });
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @Patch('users/:id/password')
+  updateOperadorPassword(@Param('id') id: string, @Body() data: { password?: string }) {
+    const parsedId = Number(id);
+    if (!Number.isInteger(parsedId) || parsedId <= 0) {
+      throw new BadRequestException('El id debe ser un numero entero mayor o igual a 1');
+    }
+
+    return this.authService.updateOperadorPassword(parsedId, data?.password);
   }
 }
