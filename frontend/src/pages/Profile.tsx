@@ -114,18 +114,18 @@ export default function Profile() {
     }
 
     if (passwordForm.newPassword.length < 8) {
-      setPasswordNotice({ tone: 'error', message: 'La nueva contrase├▒a debe tener al menos 8 caracteres.' })
+      setPasswordNotice({ tone: 'error', message: 'La nueva contrasena debe tener al menos 8 caracteres.' })
       return
     }
 
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setPasswordNotice({ tone: 'error', message: 'La confirmaci├│n no coincide con la nueva contrase├▒a.' })
+      setPasswordNotice({ tone: 'error', message: 'La confirmacion no coincide con la nueva contrasena.' })
       return
     }
 
     setPasswordNotice({
       tone: 'success',
-      message: 'Flujo visual listo. La conexi├│n real con backend puede integrarse despu├®s sin cambiar esta UI.',
+      message: 'Flujo visual listo. La conexion real con backend puede integrarse despues sin cambiar esta UI.',
     })
     setPasswordForm(EMPTY_PASSWORD)
   }
@@ -267,7 +267,7 @@ export default function Profile() {
             </span>
             <div>
               <strong>Protege tu acceso</strong>
-              <p>Actualiza tu contrase├▒a peri├│dicamente y evita compartir sesiones activas.</p>
+              <p>Actualiza tu contrasena periodicamente y evita compartir sesiones activas.</p>
             </div>
           </div>
 
@@ -278,7 +278,7 @@ export default function Profile() {
           </div>
 
           <button type="button" className="btn-outline profile-password-button" onClick={() => setShowPasswordModal(true)}>
-            Cambiar contrase├▒a
+            Cambiar contrasena
           </button>
         </aside>
       </div>
@@ -289,7 +289,7 @@ export default function Profile() {
             <div className="profile-modal-head">
               <div>
                 <span className="profile-section-kicker">Seguridad</span>
-                <h3 id="password-modal-title">Cambiar contrase├▒a</h3>
+                <h3 id="password-modal-title">Cambiar contrasena</h3>
               </div>
               <button type="button" className="profile-close-button" onClick={() => setShowPasswordModal(false)}>
                 Cerrar
@@ -298,7 +298,7 @@ export default function Profile() {
 
             <form className="profile-password-form" onSubmit={handlePasswordSubmit}>
               <label className="profile-modal-field">
-                <span>Contrase├▒a actual</span>
+                <span>Contrasena actual</span>
                 <input
                   type="password"
                   className="profile-info-input"
@@ -307,7 +307,7 @@ export default function Profile() {
                 />
               </label>
               <label className="profile-modal-field">
-                <span>Nueva contrase├▒a</span>
+                <span>Nueva contrasena</span>
                 <input
                   type="password"
                   className="profile-info-input"
@@ -316,7 +316,7 @@ export default function Profile() {
                 />
               </label>
               <label className="profile-modal-field">
-                <span>Confirmar nueva contrase├▒a</span>
+                <span>Confirmar nueva contrasena</span>
                 <input
                   type="password"
                   className="profile-info-input"
