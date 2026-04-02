@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import api from '../api'
 import type { HistorialEntry } from '../types'
-import { useAuth } from '../AuthContext'
+import { useAuth } from '../useAuth'
 
 export default function Historial() {
   const { rol } = useAuth()

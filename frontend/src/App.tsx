@@ -1,10 +1,11 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { useAuth } from './AuthContext'
+import { useAuth } from './useAuth'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Equipos from './pages/Equipos'
 import Historial from './pages/Historial'
 import Usuarios from './pages/Usuarios'
+import Profile from './pages/Profile'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { token } = useAuth()
@@ -30,6 +31,7 @@ export default function App() {
         <Route path="/equipos" element={<Equipos />} />
         <Route path="/historial" element={<Historial />} />
         <Route path="/usuarios" element={<Usuarios />} />
+        <Route path="/perfil" element={<Profile />} />
       </Route>
       <Route path="*" element={<Navigate to={token ? '/equipos' : '/login'} replace />} />
     </Routes>

@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import api from '../api'
-import { useAuth } from '../AuthContext'
+import { useAuth } from '../useAuth'
 import type { Equipo, Sector, Estado } from '../types'
 
 const SECTORES: Sector[] = ['Electrica', 'Neumatica', 'Electronica']

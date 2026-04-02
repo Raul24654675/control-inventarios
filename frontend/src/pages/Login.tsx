@@ -1,7 +1,7 @@
-import { useState, type FormEvent } from 'react'
+﻿import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
-import { useAuth } from '../AuthContext'
+import { useAuth } from '../useAuth'
 import type { Rol } from '../types'
 import rajaskiLogo from '../assets/rajaski-logo.svg'
 import './Login.css'
@@ -46,7 +46,7 @@ export default function Login() {
       navigate('/equipos', { replace: true })
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      setError(msg ?? 'Error al iniciar sesión')
+      setError(msg ?? 'Error al iniciar sesi├│n')
     } finally {
       setLoading(false)
     }
@@ -112,11 +112,11 @@ export default function Login() {
               placeholder=" "
               required
             />
-            <label htmlFor="login-password" className="field-label">Ingresa tu contraseña</label>
+            <label htmlFor="login-password" className="field-label">Ingresa tu contrase├▒a</label>
             <button
               type="button"
               className={`toggle-pass ${showPassword ? 'active' : ''}`}
-              aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+              aria-label={showPassword ? 'Ocultar contrase├▒a' : 'Mostrar contrase├▒a'}
               onClick={() => setShowPassword(s => !s)}
             >
               {showPassword ? (
@@ -138,7 +138,7 @@ export default function Login() {
 
           {error && <div className="error-box">{error}</div>}
           <button type="submit" disabled={loading} className="login-submit">
-            {loading ? 'Ingresando...' : 'Iniciar sesión'}
+            {loading ? 'Ingresando...' : 'Iniciar sesi├│n'}
           </button>
         </form>
       </div>
