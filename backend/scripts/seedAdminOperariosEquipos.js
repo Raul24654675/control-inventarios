@@ -7,8 +7,8 @@ const ADMIN_EMAIL = 'AdminMaster@inventario.local';
 const ADMIN_PASSWORD = 'ADMIN2026';
 const OPERARIO_PASSWORD = 'OPERADOR2026';
 
-const sectores = ['ELECTRICA', 'NEUMATICA', 'MECANICA'];
-const estados = ['ACTIVO', 'INACTIVO', 'MANTENIMIENTO'];
+const sectores = ['Electrica', 'Neumatica', 'Electronica'];
+const estados = ['Activo', 'Inactivo', 'EnMantenimiento'];
 
 const equiposBase = [
   'Bomba',
