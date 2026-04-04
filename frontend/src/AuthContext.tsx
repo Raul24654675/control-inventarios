@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect, type ReactNode } from 'react'
 import type { Rol } from './types'
-import { AuthContext, type AuthState } from './auth-context'
+import { AuthContext, type AuthState, type ThemeMode } from './auth-context'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [auth, setAuth] = useState<AuthState>(() => ({
@@ -8,6 +8,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     rol: (localStorage.getItem('rol') as Rol | null),
     email: localStorage.getItem('email'),
   }))
+  const [theme, setTheme] = useState<ThemeMode>(() => {
+    const saved = localStorage.getItem('ui-theme')
+    return saved === 'light' ? 'light' : 'dark'
+  })
 
   useEffect(() => {
     if (auth.token) {
@@ -21,6 +25,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [auth])
 
+  useEffect(() => {
+    localStorage.setItem('ui-theme', theme)
+    document.documentElement.setAttribute('data-theme', theme)
+  }, [theme])
+
   function login(token: string, rol: Rol, email: string) {
     setAuth({ token, rol, email })
   }
@@ -30,7 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ ...auth, login, logout }}>
+    <AuthContext.Provider value={{ ...auth, login, logout, theme, setTheme }}>
       {children}
     </AuthContext.Provider>
   )

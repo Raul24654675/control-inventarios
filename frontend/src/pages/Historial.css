@@ -23,7 +23,7 @@
   gap: 10px;
   flex-wrap: wrap;
   margin-bottom: 16px;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border-main);
   border-radius: 12px;
   box-shadow: var(--shadow-soft);
@@ -31,11 +31,55 @@
 }
 
 .history-table-card {
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border-main);
   border-radius: 12px;
   box-shadow: var(--shadow-soft);
   overflow: hidden;
+}
+
+.history-filter-input {
+  width: 240px;
+  height: 42px;
+  border: 1px solid var(--border-main);
+  border-radius: 10px;
+  background: var(--surface-soft);
+  color: var(--text-main);
+  padding: 0 12px;
+}
+
+.history-filter-input:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--green-main) 60%, var(--border-main));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green-main) 18%, transparent);
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.history-table thead tr {
+  background: color-mix(in srgb, var(--surface-soft) 90%, var(--bg-page));
+}
+
+.history-table th {
+  text-align: left;
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: var(--text-main);
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--border-main);
+}
+
+.history-table td {
+  padding: 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-main) 70%, transparent);
+  color: var(--text-main);
+}
+
+.history-table tbody tr:hover {
+  background: color-mix(in srgb, var(--green-main) 7%, transparent);
 }
 
 .action-pill {

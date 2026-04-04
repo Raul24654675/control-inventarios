@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import api from '../api'
 import type { HistorialEntry } from '../types'
 import { useAuth } from '../useAuth'
+import './Historial.css'
 
 export default function Historial() {
   const { rol } = useAuth()
@@ -46,9 +47,9 @@ export default function Historial() {
 
   function accionBadge(accion: string) {
     const map: Record<string, React.CSSProperties> = {
-      CREACION: { background: '#d4edda', color: '#1a5c2e' },
-      ACTUALIZACION: { background: '#dbeafe', color: '#1e3a5f' },
-      ELIMINACION: { background: '#fde8e3', color: '#b83c24' },
+      CREACION: { background: 'rgba(34, 197, 94, 0.2)', color: '#30d37f' },
+      ACTUALIZACION: { background: 'rgba(59, 130, 246, 0.22)', color: '#8ec8ff' },
+      ELIMINACION: { background: 'rgba(248, 113, 113, 0.22)', color: '#ffa8a8' },
     }
     return {
       display: 'inline-block',
@@ -56,7 +57,7 @@ export default function Historial() {
       borderRadius: '999px',
       fontSize: '.78rem',
       fontWeight: 700,
-      ...(map[accion] ?? { background: '#f0ebe2', color: '#5f6b6d' }),
+      ...(map[accion] ?? { background: 'rgba(148, 163, 184, 0.2)', color: 'var(--text-soft)' }),
     } as React.CSSProperties
   }
 
@@ -104,6 +105,7 @@ export default function Historial() {
 
       <div style={styles.filterBar}>
         <input
+          className="history-filter-input"
           type="number"
           min={1}
           placeholder="Filtrar por ID de equipo"
@@ -127,7 +129,7 @@ export default function Historial() {
         ) : entries.length === 0 ? (
           <p style={{ padding: '20px', color: 'var(--muted)' }}>historial vacio</p>
         ) : (
-          <table>
+          <table className="history-table">
             <thead>
               <tr>
                 <th>Fecha</th>
@@ -197,16 +199,18 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '10px',
     alignItems: 'center',
     marginBottom: '18px',
-    background: '#fff',
+    background: 'var(--surface)',
     padding: '14px 16px',
     borderRadius: '12px',
     border: '1px solid var(--border)',
+    boxShadow: 'var(--shadow-soft)',
   },
   tableWrap: {
-    background: '#fff',
+    background: 'var(--surface)',
     borderRadius: '14px',
     border: '1px solid var(--border)',
     overflow: 'hidden',
+    boxShadow: 'var(--shadow-soft)',
   },
   overlay: {
     position: 'fixed',
@@ -218,7 +222,7 @@ const styles: Record<string, React.CSSProperties> = {
     zIndex: 300,
   },
   modal: {
-    background: '#fff',
+    background: 'var(--surface)',
     borderRadius: '14px',
     padding: '20px',
     width: '100%',
