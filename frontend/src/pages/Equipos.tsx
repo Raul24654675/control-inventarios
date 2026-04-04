@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import api from '../api'
 import { useAuth } from '../useAuth'
 import type { Equipo, Sector, Estado } from '../types'
+import './Equipos.css'
 
 const SECTORES: Sector[] = ['Electrica', 'Neumatica', 'Electronica']
 const ESTADOS: Estado[] = ['Activo', 'Inactivo', 'EnMantenimiento']
@@ -241,18 +242,18 @@ export default function Equipos() {
             const onlyDigits = e.target.value.replace(/\D/g, '')
             setFilters(f => ({ ...f, id: onlyDigits, page: 1 }))
           }}
-          style={styles.filterInput}
+          style={styles.filterControl}
         />
         <input
           placeholder="Nombre"
           value={filters.nombre}
           onChange={e => setFilters(f => ({ ...f, nombre: e.target.value, page: 1 }))}
-          style={styles.filterInput}
+          style={styles.filterControl}
         />
         <select
           value={filters.sector}
           onChange={e => setFilters(f => ({ ...f, sector: e.target.value, page: 1 }))}
-          style={styles.filterInput}
+          style={styles.filterControl}
         >
           <option value="">Todas las categorias</option>
           {SECTORES.map(s => <option key={s} value={s}>{s}</option>)}
@@ -260,7 +261,7 @@ export default function Equipos() {
         <select
           value={filters.estado}
           onChange={e => setFilters(f => ({ ...f, estado: e.target.value, page: 1 }))}
-          style={styles.filterInput}
+          style={styles.filterControl}
         >
           <option value="">Todos los estados</option>
           {ESTADOS.map(s => <option key={s} value={s}>{formatEstadoLabel(s)}</option>)}
@@ -271,7 +272,7 @@ export default function Equipos() {
             const bloque = e.target.value
             setFilters(f => ({ ...f, ubicacion: buildUbicacion(filtroAula, bloque), page: 1 }))
           }}
-          style={styles.filterInput}
+          style={styles.filterControl}
         >
           <option value="">Todas las ubicaciones</option>
           {BLOQUES.map(b => (
@@ -287,7 +288,7 @@ export default function Equipos() {
             setFilters(f => ({ ...f, ubicacion: buildUbicacion(aula, filtroBloque), page: 1 }))
           }}
           disabled={!filtroBloque || filtroBloque === 'ALMACEN'}
-          style={styles.filterInput}
+          style={styles.filterControl}
         >
           <option value="">Todas las aulas</option>
           {AULAS.map(a => <option key={a} value={a}>{a}</option>)}
@@ -303,7 +304,7 @@ export default function Equipos() {
         ) : equipos.length === 0 ? (
           <p style={{ padding: '20px', color: 'var(--muted)' }}>No hay equipos para mostrar.</p>
         ) : (
-          <table>
+          <table className="equipos-table">
             <thead>
               <tr>
                 <th>ID</th>
@@ -375,6 +376,7 @@ export default function Equipos() {
               <label style={styles.label}>
                 Nombre *
                 <input
+                  className="modal-control"
                   value={form.nombre}
                   onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
                   placeholder="ingresa el nombre del equipo"
@@ -385,6 +387,7 @@ export default function Equipos() {
                 <label style={styles.label}>
                   Categoria *
                   <select
+                    className="modal-control"
                     value={form.sector}
                     onChange={e => setForm(f => ({ ...f, sector: e.target.value as Sector }))}
                     disabled={!isAdmin && !!editing}
@@ -395,6 +398,7 @@ export default function Equipos() {
                 <label style={styles.label}>
                   Estado *
                   <select
+                    className="modal-control"
                     value={form.estado}
                     onChange={e => setForm(f => ({ ...f, estado: e.target.value as Estado }))}
                     disabled={!isAdmin && !!editing}
@@ -406,6 +410,7 @@ export default function Equipos() {
               <label style={styles.label}>
                 Ubicacion {editing ? '' : '*'}
                 <select
+                  className="modal-control"
                   value={formBloque}
                   onChange={e => {
                     const bloque = e.target.value
@@ -423,9 +428,10 @@ export default function Equipos() {
               <label style={styles.label}>
                 Aula
                 {formBloque === 'ALMACEN' ? (
-                  <input value="Ubicado en el almacén" disabled />
+                  <input className="modal-control" value="Ubicado en el almacén" disabled />
                 ) : (
                   <select
+                    className="modal-control"
                     value={formAula}
                     onChange={e => {
                       const aula = e.target.value
@@ -441,6 +447,7 @@ export default function Equipos() {
               <label style={styles.label}>
                 Descripción {editing ? '' : '*'}
                 <input
+                  className="modal-control"
                   value={form.descripcion}
                   onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
                   placeholder="ingresa una descripcion del equipo"
@@ -476,18 +483,28 @@ const styles: Record<string, React.CSSProperties> = {
     flexWrap: 'wrap',
     gap: '10px',
     marginBottom: '18px',
-    background: '#fff',
+    background: 'var(--surface)',
     padding: '14px 16px',
     borderRadius: '12px',
     border: '1px solid var(--border)',
+    boxShadow: 'var(--shadow-soft)',
   },
-  filterInput: { flex: '1 1 160px' },
+  filterControl: {
+    flex: '1 1 160px',
+    background: 'var(--surface-soft)',
+    color: 'var(--text-main)',
+    border: '1px solid var(--border-main)',
+    borderRadius: '10px',
+    height: '50px',
+    padding: '0 12px',
+  },
   tableWrap: {
-    background: '#fff',
+    background: 'var(--surface)',
     borderRadius: '14px',
     border: '1px solid var(--border)',
     overflow: 'hidden',
     marginBottom: '14px',
+    boxShadow: 'var(--shadow-soft)',
   },
   pagination: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', marginTop: '8px' },
   overlay: {
@@ -497,12 +514,13 @@ const styles: Record<string, React.CSSProperties> = {
     zIndex: 200,
   },
   modal: {
-    background: '#fff',
+    background: 'var(--surface)',
     borderRadius: '18px',
     padding: '30px 28px',
     width: '100%',
     maxWidth: '520px',
     boxShadow: '0 24px 70px rgba(20,30,32,.22)',
+    border: '1px solid var(--border-main)',
   },
   modalForm: { display: 'flex', flexDirection: 'column', gap: '14px' },
   label: { display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '0.85rem', color: 'var(--muted)' },
@@ -511,9 +529,9 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: '14px',
     padding: '10px 12px',
     borderRadius: '10px',
-    border: '1px solid #c7e4f7',
-    background: '#eef7ff',
-    color: '#1f4f73',
+    border: '1px solid color-mix(in srgb, var(--green-main) 32%, var(--border-main))',
+    background: 'color-mix(in srgb, var(--green-main) 12%, var(--surface))',
+    color: 'var(--text-main)',
     fontSize: '0.86rem',
     lineHeight: 1.35,
   },

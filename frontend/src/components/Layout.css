@@ -17,8 +17,8 @@
   height: 86px;
   padding: 0 30px;
   backdrop-filter: blur(12px);
-  background: rgba(248, 250, 252, 0.9);
-  border-bottom: 1px solid rgba(229, 231, 235, 0.9);
+  background: var(--topbar-bg);
+  border-bottom: 1px solid var(--topbar-border);
 }
 
 .topbar-left {
@@ -94,11 +94,77 @@
 
 .topbar-right {
   position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.layout-theme-switch {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.layout-theme-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.layout-theme-track {
+  width: 64px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid var(--layout-theme-border);
+  background: var(--layout-theme-track-bg);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 7px;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.layout-theme-icon {
+  width: 13px;
+  height: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.layout-theme-icon-moon {
+  color: var(--layout-theme-moon);
+}
+
+.layout-theme-icon-sun {
+  color: var(--layout-theme-sun);
+}
+
+.layout-theme-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--layout-theme-thumb-bg);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.28);
+  transition: transform 0.2s ease;
+}
+
+.layout-theme-switch input:checked + .layout-theme-track .layout-theme-thumb {
+  transform: translateX(32px);
+}
+
+.layout-theme-switch:hover .layout-theme-track {
+  filter: brightness(1.05);
 }
 
 .user-trigger {
   border: 1px solid var(--border-main);
-  background: #fff;
+  background: var(--surface);
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
@@ -171,7 +237,7 @@
   right: 0;
   top: calc(100% + 10px);
   width: 220px;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border-main);
   border-radius: 14px;
   box-shadow: 0 20px 45px rgba(15, 23, 42, 0.14);

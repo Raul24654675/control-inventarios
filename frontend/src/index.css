@@ -4,13 +4,48 @@
   --green-soft: #22c55e;
   --bg-page: #f8fafc;
   --surface: #ffffff;
+  --surface-soft: #f8fafc;
   --border-main: #e5e7eb;
+  --border: #e5e7eb;
   --text-main: #111827;
   --text-soft: #6b7280;
+  --muted: #6b7280;
   --danger: #ef4444;
   --danger-soft: #fecaca;
   --shadow-soft: 0 8px 24px rgba(15, 23, 42, 0.06);
   --shadow-lift: 0 16px 35px rgba(22, 163, 74, 0.16);
+  --topbar-bg: rgba(248, 250, 252, 0.9);
+  --topbar-border: rgba(229, 231, 235, 0.9);
+  --layout-theme-border: rgba(35, 132, 96, 0.42);
+  --layout-theme-track-bg: rgba(236, 252, 245, 0.94);
+  --layout-theme-thumb-bg: linear-gradient(145deg, #1eb77f, #0f9462);
+  --layout-theme-moon: #2f6e5a;
+  --layout-theme-sun: #78d9b8;
+}
+
+:root[data-theme='dark'] {
+  --green-main: #22c58b;
+  --green-dark: #17a574;
+  --green-soft: #4be2ac;
+  --bg-page: #07111b;
+  --surface: #0d1a29;
+  --surface-soft: #0a1623;
+  --border-main: #223348;
+  --border: #223348;
+  --text-main: #e6f1ff;
+  --text-soft: #98a9bf;
+  --muted: #98a9bf;
+  --danger: #f87171;
+  --danger-soft: #3a1f25;
+  --shadow-soft: 0 10px 26px rgba(0, 0, 0, 0.32);
+  --shadow-lift: 0 16px 35px rgba(34, 197, 139, 0.2);
+  --topbar-bg: rgba(7, 16, 27, 0.88);
+  --topbar-border: rgba(36, 55, 76, 0.9);
+  --layout-theme-border: rgba(58, 150, 122, 0.55);
+  --layout-theme-track-bg: rgba(8, 31, 35, 0.9);
+  --layout-theme-thumb-bg: linear-gradient(145deg, #0f4f43, #0b352f);
+  --layout-theme-moon: #daf5ff;
+  --layout-theme-sun: #7ce8c3;
 }
 
 * {
@@ -88,7 +123,7 @@ textarea {
 .btn-ghost {
   color: var(--text-main);
   border-color: var(--border-main);
-  background: #fff;
+  background: var(--surface);
 }
 
 .btn-ghost:hover:not(:disabled) {
@@ -99,7 +134,7 @@ textarea {
 .btn-outline {
   color: var(--green-dark);
   border-color: rgba(22, 163, 74, 0.45);
-  background: #fff;
+  background: var(--surface);
 }
 
 .btn-outline:hover:not(:disabled) {
@@ -109,7 +144,7 @@ textarea {
 .btn-danger {
   color: #991b1b;
   border-color: #fca5a5;
-  background: #fff5f5;
+  background: color-mix(in srgb, var(--danger-soft) 70%, var(--surface));
 }
 
 .btn-danger:hover:not(:disabled) {
@@ -120,10 +155,16 @@ textarea {
   margin: 12px 0;
   border-radius: 10px;
   padding: 12px 14px;
-  color: #991b1b;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  color: color-mix(in srgb, var(--danger) 70%, #fff);
+  background: color-mix(in srgb, var(--danger-soft) 40%, transparent);
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border-main));
   font-size: 0.88rem;
+}
+
+input,
+select,
+textarea {
+  color: var(--text-main);
 }
 
 .empty-state {

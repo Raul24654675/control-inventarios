@@ -2,11 +2,12 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../useAuth'
 import { PROFILE_UPDATED_EVENT, readStoredProfile } from '../profile-storage'
-import rajaskiLogo from '../assets/rajaski-logo.svg'
+import rajaskiLogoDark from '../assets/rajaski-logo-dark.svg'
+import rajaskiLogoLight from '../assets/rajaski-logo-light.svg'
 import './Layout.css'
 
 export default function Layout() {
-  const { email, rol, logout } = useAuth()
+  const { email, rol, logout, theme, setTheme } = useAuth()
   const navigate = useNavigate()
   const [openMenu, setOpenMenu] = useState(false)
   const menuRef = useRef<HTMLDivElement | null>(null)
@@ -56,11 +57,11 @@ export default function Layout() {
   }
 
   return (
-    <div className="app-shell" onClick={closeOnOutside}>
+    <div className={`app-shell ${theme === 'dark' ? 'theme-dark' : 'theme-light'}`} onClick={closeOnOutside}>
       <header className="topbar">
         <div className="topbar-left">
           <div className="brand-block">
-            <img src={rajaskiLogo} alt="RAJASKI" className="brand-logo" />
+            <img src={theme === 'dark' ? rajaskiLogoDark : rajaskiLogoLight} alt="RAJASKI" className="brand-logo" />
             <div className="brand-text" aria-hidden="true">
               <strong>RAJASKI</strong>
               <span>Sistema de control de inventarios</span>
@@ -84,6 +85,28 @@ export default function Layout() {
         </div>
 
         <div className="topbar-right" ref={menuRef}>
+          <label className="layout-theme-switch" aria-label="Cambiar tema claro u oscuro">
+            <input
+              type="checkbox"
+              checked={theme === 'light'}
+              onChange={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            />
+            <span className="layout-theme-track" aria-hidden="true">
+              <span className="layout-theme-icon layout-theme-icon-moon">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+                  <path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 1 0 21 12.8Z" />
+                </svg>
+              </span>
+              <span className="layout-theme-icon layout-theme-icon-sun">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round">
+                  <circle cx="12" cy="12" r="4" />
+                  <path d="M12 2v2.2M12 19.8V22M4.9 4.9l1.5 1.5M17.6 17.6l1.5 1.5M2 12h2.2M19.8 12H22M4.9 19.1l1.5-1.5M17.6 6.4l1.5-1.5" />
+                </svg>
+              </span>
+              <span className="layout-theme-thumb" />
+            </span>
+          </label>
+
           <button
             type="button"
             className="user-trigger"
