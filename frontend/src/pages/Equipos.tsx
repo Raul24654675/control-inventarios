@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import api from '../api'
 import { useAuth } from '../useAuth'
 import type { Equipo, Sector, Estado } from '../types'
@@ -113,13 +114,21 @@ const EMPTY_FORM: EquipoForm = { nombre: '', sector: 'Electrica', estado: 'Activ
 export default function Equipos() {
   const { rol } = useAuth()
   const isAdmin = rol === 'ADMIN'
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const [equipos, setEquipos] = useState<Equipo[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
+  const [tableMotionKey, setTableMotionKey] = useState(0)
+  const [isClearingFilters, setIsClearingFilters] = useState(false)
 
   const [showForm, setShowForm] = useState(false)
+  const [isClosingForm, setIsClosingForm] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isClosingDeleteConfirm, setIsClosingDeleteConfirm] = useState(false)
+  const [pendingDeleteEquipo, setPendingDeleteEquipo] = useState<Pick<Equipo, 'id' | 'nombre'> | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
   const [editing, setEditing] = useState<Equipo | null>(null)
   const [form, setForm] = useState<EquipoForm>(EMPTY_FORM)
   const [formError, setFormError] = useState('')
@@ -142,6 +151,7 @@ export default function Equipos() {
       params.set('limit', String(f.limit))
       const { data } = await api.get<Equipo[]>(`/equipos?${params.toString()}`)
       setEquipos(data)
+      setTableMotionKey(k => k + 1)
     } catch {
       setError('No se pudo cargar la lista de equipos.')
     } finally {
@@ -153,14 +163,32 @@ export default function Equipos() {
     load(filters)
   }, [filters.id, filters.nombre, filters.sector, filters.estado, filters.ubicacion, filters.page, filters.limit])
 
+  useEffect(() => {
+    const openCreateParam = searchParams.get('createEquipo')
+    if (openCreateParam !== '1' || !isAdmin) return
+
+    setEditing(null)
+    setForm(EMPTY_FORM)
+    setFormError('')
+    setIsClosingForm(false)
+    setShowForm(true)
+
+    const next = new URLSearchParams(searchParams)
+    next.delete('createEquipo')
+    setSearchParams(next, { replace: true })
+  }, [isAdmin, searchParams, setSearchParams])
+
   function clearFilters() {
     setFilters(EMPTY_FILTERS)
+    setIsClearingFilters(true)
+    setTimeout(() => setIsClearingFilters(false), 430)
   }
 
   function openCreate() {
     setEditing(null)
     setForm(EMPTY_FORM)
     setFormError('')
+    setIsClosingForm(false)
     setShowForm(true)
   }
 
@@ -174,16 +202,45 @@ export default function Equipos() {
       ubicacion: eq.ubicacion ?? '',
     })
     setFormError('')
+    setIsClosingForm(false)
     setShowForm(true)
   }
 
-  async function handleDelete(id: number) {
-    if (!confirm('¿Eliminar este equipo? Esta acción no se puede deshacer.')) return
+  function closeFormModal() {
+    setIsClosingForm(true)
+    setTimeout(() => {
+      setShowForm(false)
+      setIsClosingForm(false)
+    }, 300)
+  }
+
+  function openDeleteConfirm(eq: Pick<Equipo, 'id' | 'nombre'>) {
+    setPendingDeleteEquipo(eq)
+    setIsClosingDeleteConfirm(false)
+    setShowDeleteConfirm(true)
+  }
+
+  function closeDeleteConfirm() {
+    if (isClosingDeleteConfirm) return
+    setIsClosingDeleteConfirm(true)
+    setTimeout(() => {
+      setShowDeleteConfirm(false)
+      setIsClosingDeleteConfirm(false)
+      setPendingDeleteEquipo(null)
+    }, 300)
+  }
+
+  async function confirmDeleteEquipo() {
+    if (!pendingDeleteEquipo) return
+    setDeleteLoading(true)
     try {
-      await api.delete(`/equipos/${id}`)
+      await api.delete(`/equipos/${pendingDeleteEquipo.id}`)
+      closeDeleteConfirm()
       load(filters)
     } catch {
-      alert('No se pudo eliminar el equipo.')
+      setError('No se pudo eliminar el equipo.')
+    } finally {
+      setDeleteLoading(false)
     }
   }
 
@@ -213,7 +270,7 @@ export default function Equipos() {
       } else {
         await api.post('/equipos', payload)
       }
-      setShowForm(false)
+      closeFormModal()
       load(filters)
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
@@ -232,79 +289,129 @@ export default function Equipos() {
         )}
       </div>
 
-      <div style={styles.filters}>
-        <input
-          type="text"
-          inputMode="numeric"
-          placeholder="ID"
-          value={filters.id}
-          onChange={e => {
-            const onlyDigits = e.target.value.replace(/\D/g, '')
-            setFilters(f => ({ ...f, id: onlyDigits, page: 1 }))
-          }}
-          style={styles.filterControl}
-        />
-        <input
-          placeholder="Nombre"
-          value={filters.nombre}
-          onChange={e => setFilters(f => ({ ...f, nombre: e.target.value, page: 1 }))}
-          style={styles.filterControl}
-        />
-        <select
-          value={filters.sector}
-          onChange={e => setFilters(f => ({ ...f, sector: e.target.value, page: 1 }))}
-          style={styles.filterControl}
-        >
-          <option value="">Todas las categorias</option>
-          {SECTORES.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <select
-          value={filters.estado}
-          onChange={e => setFilters(f => ({ ...f, estado: e.target.value, page: 1 }))}
-          style={styles.filterControl}
-        >
-          <option value="">Todos los estados</option>
-          {ESTADOS.map(s => <option key={s} value={s}>{formatEstadoLabel(s)}</option>)}
-        </select>
-        <select
-          value={filtroBloque}
-          onChange={e => {
-            const bloque = e.target.value
-            setFilters(f => ({ ...f, ubicacion: buildUbicacion(filtroAula, bloque), page: 1 }))
-          }}
-          style={styles.filterControl}
-        >
-          <option value="">Todas las ubicaciones</option>
-          {BLOQUES.map(b => (
-            <option key={b} value={b}>
-              {b === 'ALMACEN' ? 'En almacén' : `Bloque ${b}`}
-            </option>
-          ))}
-        </select>
-        <select
-          value={filtroAula}
-          onChange={e => {
-            const aula = e.target.value
-            setFilters(f => ({ ...f, ubicacion: buildUbicacion(aula, filtroBloque), page: 1 }))
-          }}
-          disabled={!filtroBloque || filtroBloque === 'ALMACEN'}
-          style={styles.filterControl}
-        >
-          <option value="">Todas las aulas</option>
-          {AULAS.map(a => <option key={a} value={a}>{a}</option>)}
-        </select>
-        <button type="button" className="btn-ghost" onClick={clearFilters}>Limpiar</button>
-      </div>
+      <section className={`filters-card ${isClearingFilters ? 'is-clearing' : ''}`} aria-label="Filtros de equipos">
+        <h3 className="filters-title">FILTROS</h3>
+        <div className="filters-divider" aria-hidden="true" />
+
+        <div className="filters-grid">
+          <label className="filter-item" htmlFor="filter-id">
+            <span className="filter-label">ID</span>
+            <input
+              id="filter-id"
+              type="text"
+              inputMode="numeric"
+              placeholder="ID"
+              value={filters.id}
+              onChange={e => {
+                const onlyDigits = e.target.value.replace(/\D/g, '')
+                setFilters(f => ({ ...f, id: onlyDigits, page: 1 }))
+              }}
+              className="filter-control"
+            />
+          </label>
+
+          <label className="filter-item" htmlFor="filter-nombre">
+            <span className="filter-label">NOMBRE</span>
+            <input
+              id="filter-nombre"
+              placeholder="Nombre"
+              value={filters.nombre}
+              onChange={e => setFilters(f => ({ ...f, nombre: e.target.value, page: 1 }))}
+              className="filter-control"
+            />
+          </label>
+
+          <label className="filter-item select-item" htmlFor="filter-sector">
+            <span className="filter-label">CATEGORÍA</span>
+            <span className="select-wrap">
+              <select
+                id="filter-sector"
+                value={filters.sector}
+                onChange={e => setFilters(f => ({ ...f, sector: e.target.value, page: 1 }))}
+                className="filter-control"
+              >
+                <option value="">Todas las categorias</option>
+                {SECTORES.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <span className="filter-chevron" aria-hidden="true" />
+            </span>
+          </label>
+
+          <label className="filter-item select-item" htmlFor="filter-estado">
+            <span className="filter-label">ESTADO</span>
+            <span className="select-wrap">
+              <select
+                id="filter-estado"
+                value={filters.estado}
+                onChange={e => setFilters(f => ({ ...f, estado: e.target.value, page: 1 }))}
+                className="filter-control"
+              >
+                <option value="">Todos los estados</option>
+                {ESTADOS.map(s => <option key={s} value={s}>{formatEstadoLabel(s)}</option>)}
+              </select>
+              <span className="filter-chevron" aria-hidden="true" />
+            </span>
+          </label>
+
+          <label className="filter-item select-item" htmlFor="filter-bloque">
+            <span className="filter-label">UBICACIÓN</span>
+            <span className="select-wrap">
+              <select
+                id="filter-bloque"
+                value={filtroBloque}
+                onChange={e => {
+                  const bloque = e.target.value
+                  setFilters(f => ({ ...f, ubicacion: buildUbicacion(filtroAula, bloque), page: 1 }))
+                }}
+                className="filter-control"
+              >
+                <option value="">Todas las ubicaciones</option>
+                {BLOQUES.map(b => (
+                  <option key={b} value={b}>
+                    {b === 'ALMACEN' ? 'En almacén' : `Bloque ${b}`}
+                  </option>
+                ))}
+              </select>
+              <span className="filter-chevron" aria-hidden="true" />
+            </span>
+          </label>
+
+          <label className="filter-item select-item" htmlFor="filter-aula">
+            <span className="filter-label">AULA</span>
+            <span className="select-wrap">
+              <select
+                id="filter-aula"
+                value={filtroAula}
+                onChange={e => {
+                  const aula = e.target.value
+                  setFilters(f => ({ ...f, ubicacion: buildUbicacion(aula, filtroBloque), page: 1 }))
+                }}
+                disabled={!filtroBloque || filtroBloque === 'ALMACEN'}
+                className="filter-control"
+              >
+                <option value="">Todas las aulas</option>
+                {AULAS.map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
+              <span className="filter-chevron" aria-hidden="true" />
+            </span>
+          </label>
+        </div>
+
+        <div className="filters-divider" aria-hidden="true" />
+        <div className="filters-actions">
+          <button type="button" className="btn-ghost" onClick={clearFilters}>Limpiar</button>
+        </div>
+      </section>
 
       {error && <div className="error-box">{error}</div>}
 
-      <div style={styles.tableWrap}>
-        {loading ? (
+      <div style={styles.tableWrap} className={`equipos-table-wrap ${loading && equipos.length > 0 ? 'is-filtering' : ''}`}>
+        {loading && equipos.length === 0 ? (
           <p style={{ padding: '20px', color: 'var(--muted)' }}>Cargando...</p>
         ) : equipos.length === 0 ? (
           <p style={{ padding: '20px', color: 'var(--muted)' }}>No hay equipos para mostrar.</p>
         ) : (
-          <table className="equipos-table">
+          <table className="equipos-table equipos-table-animated" key={tableMotionKey}>
             <thead>
               <tr>
                 <th>ID</th>
@@ -315,21 +422,21 @@ export default function Equipos() {
                 {isAdmin && <th>Acciones</th>}
               </tr>
             </thead>
-            <tbody>
-              {equipos.map(eq => (
-                <tr key={eq.id}>
+            <tbody className="equipos-tbody">
+              {equipos.map((eq, index) => (
+                <tr key={eq.id} className="equipos-row" style={{ animationDelay: `${index * 90}ms` }}>
                   <td style={{ color: 'var(--muted)', fontSize: '.85rem' }}>{eq.id}</td>
                   <td style={{ fontWeight: 600 }}>{eq.nombre}</td>
-                  <td><span className={`tag ${sectorTag[eq.sector]}`}>{eq.sector}</span></td>
-                  <td><span className={`tag ${estadoTag[eq.estado]}`}>{formatEstadoLabel(eq.estado)}</span></td>
-                  <td style={{ color: 'var(--muted)', fontSize: '.88rem' }}>{formatUbicacionLabel(eq.ubicacion)}</td>
+                  <td><span className={`tag data-chip ${sectorTag[eq.sector]}`} style={{ animationDelay: `${index * 90 + 90}ms` }}>{eq.sector}</span></td>
+                  <td><span className={`tag data-chip ${estadoTag[eq.estado]}`} style={{ animationDelay: `${index * 90 + 140}ms` }}>{formatEstadoLabel(eq.estado)}</span></td>
+                  <td><span className="ubicacion-pill data-chip" style={{ animationDelay: `${index * 90 + 190}ms` }}>{formatUbicacionLabel(eq.ubicacion)}</span></td>
                   {isAdmin && (
                     <td>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button className="btn-ghost" onClick={() => openEdit(eq)} style={{ padding: '5px 12px', fontSize: '0.82rem' }}>
+                      <div className="row-actions">
+                        <button className="btn-ghost equipos-edit-btn action-btn" onClick={() => openEdit(eq)} style={{ padding: '5px 12px', fontSize: '0.82rem' }}>
                           Editar
                         </button>
-                        <button className="btn-danger" onClick={() => handleDelete(eq.id)} style={{ padding: '5px 12px', fontSize: '0.82rem' }}>
+                        <button className="btn-danger equipos-delete-btn action-btn" onClick={() => openDeleteConfirm(eq)} style={{ padding: '5px 12px', fontSize: '0.82rem' }}>
                           Eliminar
                         </button>
                       </div>
@@ -369,11 +476,11 @@ export default function Equipos() {
       </div>
 
       {showForm && (
-        <div style={styles.overlay} onClick={() => setShowForm(false)}>
-          <div style={styles.modal} onClick={e => e.stopPropagation()}>
-            <h3 style={{ marginBottom: '20px' }}>{editing ? 'Editar equipo' : 'Nuevo equipo'}</h3>
-            <form onSubmit={handleSubmit} style={styles.modalForm}>
-              <label style={styles.label}>
+        <div className={`edit-modal-overlay ${isClosingForm ? 'is-closing' : ''}`} onClick={closeFormModal}>
+          <div className={`edit-modal-card ${isClosingForm ? 'is-closing' : ''}`} onClick={e => e.stopPropagation()}>
+            <h3 className="edit-modal-title">{editing ? 'Editar equipo' : 'Nuevo equipo'}</h3>
+            <form onSubmit={handleSubmit} className="edit-modal-form">
+              <label className="edit-modal-field" style={{ animationDelay: '40ms' }}>
                 Nombre *
                 <input
                   className="modal-control"
@@ -383,68 +490,80 @@ export default function Equipos() {
                   required
                 />
               </label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <label style={styles.label}>
+              <div className="edit-modal-grid">
+                <label className="edit-modal-field" style={{ animationDelay: '90ms' }}>
                   Categoria *
-                  <select
-                    className="modal-control"
-                    value={form.sector}
-                    onChange={e => setForm(f => ({ ...f, sector: e.target.value as Sector }))}
-                    disabled={!isAdmin && !!editing}
-                  >
-                    {SECTORES.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
+                  <span className="edit-modal-select-wrap">
+                    <select
+                      className="modal-control"
+                      value={form.sector}
+                      onChange={e => setForm(f => ({ ...f, sector: e.target.value as Sector }))}
+                      disabled={!isAdmin && !!editing}
+                    >
+                      {SECTORES.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    <span className="edit-modal-chevron" aria-hidden="true" />
+                  </span>
                 </label>
-                <label style={styles.label}>
+                <label className="edit-modal-field" style={{ animationDelay: '140ms' }}>
                   Estado *
-                  <select
-                    className="modal-control"
-                    value={form.estado}
-                    onChange={e => setForm(f => ({ ...f, estado: e.target.value as Estado }))}
-                    disabled={!isAdmin && !!editing}
-                  >
-                    {ESTADOS.map(s => <option key={s} value={s}>{formatEstadoLabel(s)}</option>)}
-                  </select>
+                  <span className="edit-modal-select-wrap">
+                    <select
+                      className="modal-control"
+                      value={form.estado}
+                      onChange={e => setForm(f => ({ ...f, estado: e.target.value as Estado }))}
+                      disabled={!isAdmin && !!editing}
+                    >
+                      {ESTADOS.map(s => <option key={s} value={s}>{formatEstadoLabel(s)}</option>)}
+                    </select>
+                    <span className="edit-modal-chevron" aria-hidden="true" />
+                  </span>
                 </label>
               </div>
-              <label style={styles.label}>
+              <label className="edit-modal-field" style={{ animationDelay: '190ms' }}>
                 Ubicacion {editing ? '' : '*'}
-                <select
-                  className="modal-control"
-                  value={formBloque}
-                  onChange={e => {
-                    const bloque = e.target.value
-                    setForm(f => ({ ...f, ubicacion: buildUbicacion(formAula, bloque) }))
-                  }}
-                >
-                  <option value="" disabled>Selecciona bloque</option>
-                  {BLOQUES.map(b => (
-                    <option key={b} value={b}>
-                      {b === 'ALMACEN' ? 'En almacén' : `Bloque ${b}`}
-                    </option>
-                  ))}
-                </select>
+                <span className="edit-modal-select-wrap">
+                  <select
+                    className="modal-control"
+                    value={formBloque}
+                    onChange={e => {
+                      const bloque = e.target.value
+                      setForm(f => ({ ...f, ubicacion: buildUbicacion(formAula, bloque) }))
+                    }}
+                  >
+                    <option value="" disabled>Selecciona bloque</option>
+                    {BLOQUES.map(b => (
+                      <option key={b} value={b}>
+                        {b === 'ALMACEN' ? 'En almacén' : `Bloque ${b}`}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="edit-modal-chevron" aria-hidden="true" />
+                </span>
               </label>
-              <label style={styles.label}>
+              <label className="edit-modal-field" style={{ animationDelay: '240ms' }}>
                 Aula
                 {formBloque === 'ALMACEN' ? (
                   <input className="modal-control" value="Ubicado en el almacén" disabled />
                 ) : (
-                  <select
-                    className="modal-control"
-                    value={formAula}
-                    onChange={e => {
-                      const aula = e.target.value
-                      setForm(f => ({ ...f, ubicacion: buildUbicacion(aula, formBloque) }))
-                    }}
-                    disabled={!formBloque}
-                  >
-                    <option value="" disabled>Selecciona aula</option>
-                    {AULAS.map(a => <option key={a} value={a}>{a}</option>)}
-                  </select>
+                  <span className="edit-modal-select-wrap">
+                    <select
+                      className="modal-control"
+                      value={formAula}
+                      onChange={e => {
+                        const aula = e.target.value
+                        setForm(f => ({ ...f, ubicacion: buildUbicacion(aula, formBloque) }))
+                      }}
+                      disabled={!formBloque}
+                    >
+                      <option value="" disabled>Selecciona aula</option>
+                      {AULAS.map(a => <option key={a} value={a}>{a}</option>)}
+                    </select>
+                    <span className="edit-modal-chevron" aria-hidden="true" />
+                  </span>
                 )}
               </label>
-              <label style={styles.label}>
+              <label className="edit-modal-field" style={{ animationDelay: '290ms' }}>
                 Descripción {editing ? '' : '*'}
                 <input
                   className="modal-control"
@@ -454,20 +573,42 @@ export default function Equipos() {
                   required={!editing}
                 />
               </label>
-              <div style={styles.infoBox}>
+              <div className="edit-modal-info" style={{ animationDelay: '330ms' }}>
                 Debes completar nombre, descripcion, ubicacion y aula para guardar el equipo.
                 Si eliges "En almacén", no es necesario seleccionar aula.
               </div>
               {formError && <div className="error-box" style={styles.formErrorBox}>{formError}</div>}
-              <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
-                <button type="submit" className="btn-primary" disabled={formLoading} style={{ flex: 1, borderRadius: '10px' }}>
+              <div className="edit-modal-actions">
+                <button type="submit" className="btn-primary edit-modal-save action-btn" disabled={formLoading} style={{ flex: 1, borderRadius: '10px' }}>
                   {formLoading ? 'Guardando...' : 'Guardar'}
                 </button>
-                <button type="button" className="btn-ghost" onClick={() => setShowForm(false)} style={{ borderRadius: '10px' }}>
+                <button type="button" className="btn-ghost edit-modal-cancel action-btn" onClick={closeFormModal} style={{ borderRadius: '10px' }}>
                   Cancelar
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showDeleteConfirm && (
+        <div className={`equipos-delete-confirm-overlay ${isClosingDeleteConfirm ? 'is-closing' : ''}`} onClick={closeDeleteConfirm}>
+          <div className={`equipos-delete-confirm-card ${isClosingDeleteConfirm ? 'is-closing' : ''}`} onClick={e => e.stopPropagation()}>
+            <h4>Seguro que quiere eliminar el equipo?</h4>
+            <p>Esta opcion no se puede deshacer.</p>
+            <div className="equipos-delete-confirm-actions">
+              <button type="button" className="btn-ghost" onClick={closeDeleteConfirm} disabled={deleteLoading}>
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn-danger equipos-delete-btn action-btn"
+                onClick={confirmDeleteEquipo}
+                disabled={deleteLoading}
+              >
+                {deleteLoading ? 'Eliminando...' : `Eliminar ${pendingDeleteEquipo?.nombre ?? ''}`}
+              </button>
+            </div>
           </div>
         </div>
       )}

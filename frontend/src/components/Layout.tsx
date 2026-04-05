@@ -45,11 +45,6 @@ export default function Layout() {
     navigate('/perfil')
   }
 
-  function handleGoToUsuarios() {
-    setOpenMenu(false)
-    navigate('/usuarios')
-  }
-
   function closeOnOutside(event: MouseEvent<HTMLDivElement>) {
     if (menuRef.current && event.target instanceof Node && !menuRef.current.contains(event.target)) {
       setOpenMenu(false)
@@ -70,6 +65,12 @@ export default function Layout() {
 
           <nav className="topbar-nav">
             <NavLink
+              to="/resumen"
+              className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+            >
+              Resumen
+            </NavLink>
+            <NavLink
               to="/equipos"
               className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
             >
@@ -81,6 +82,14 @@ export default function Layout() {
             >
               Historial
             </NavLink>
+            {isAdmin && (
+              <NavLink
+                to="/usuarios"
+                className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+              >
+                Usuarios
+              </NavLink>
+            )}
           </nav>
         </div>
 
@@ -131,11 +140,6 @@ export default function Layout() {
               <button type="button" className="menu-item" onClick={handleGoToProfile}>
                 Perfil
               </button>
-              {isAdmin && (
-                <button type="button" className="menu-item" onClick={handleGoToUsuarios}>
-                  Gestionar usuarios
-                </button>
-              )}
               <button type="button" className="menu-item danger" onClick={handleLogout}>
                 Cerrar sesión
               </button>

@@ -14,6 +14,7 @@ export default function Historial() {
   const [equipoId, setEquipoId] = useState('')
   const [showConfirmDelete, setShowConfirmDelete] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const [isClearingFilters, setIsClearingFilters] = useState(false)
 
   async function load(id?: string) {
     setLoading(true)
@@ -30,6 +31,13 @@ export default function Historial() {
   }
 
   useEffect(() => { load() }, [])
+
+  function clearHistoryFilter() {
+    setEquipoId('')
+    load()
+    setIsClearingFilters(true)
+    setTimeout(() => setIsClearingFilters(false), 430)
+  }
 
   async function handleClearHistorial() {
     setDeleteLoading(true)
@@ -103,23 +111,35 @@ export default function Historial() {
         )}
       </div>
 
-      <div style={styles.filterBar}>
-        <input
-          className="history-filter-input"
-          type="number"
-          min={1}
-          placeholder="Filtrar por ID de equipo"
-          value={equipoId}
-          onChange={e => setEquipoId(e.target.value)}
-          style={{ width: '240px' }}
-        />
-        <button className="btn-primary" onClick={() => load(equipoId || undefined)}>
-          Filtrar
-        </button>
-        <button className="btn-ghost" onClick={() => { setEquipoId(''); load() }}>
-          Ver todo
-        </button>
-      </div>
+      <section className={`history-filters-card ${isClearingFilters ? 'is-clearing' : ''}`} aria-label="Filtros de historial">
+        <h3 className="history-filters-title">FILTROS</h3>
+        <div className="history-filters-divider" aria-hidden="true" />
+
+        <div className="history-filters-grid">
+          <label className="history-filter-item" htmlFor="history-filter-equipo-id">
+            <span className="history-filter-label">ID DE EQUIPO</span>
+            <input
+              id="history-filter-equipo-id"
+              className="history-filter-control"
+              type="number"
+              min={1}
+              placeholder="Filtrar por ID de equipo"
+              value={equipoId}
+              onChange={e => setEquipoId(e.target.value)}
+            />
+          </label>
+        </div>
+
+        <div className="history-filters-divider" aria-hidden="true" />
+        <div className="history-filters-actions">
+          <button className="btn-primary" onClick={() => load(equipoId || undefined)}>
+            Filtrar
+          </button>
+          <button className="btn-ghost" onClick={clearHistoryFilter}>
+            Ver todo
+          </button>
+        </div>
+      </section>
 
       {error && <div className="error-box">{error}</div>}
 
@@ -194,17 +214,6 @@ export default function Historial() {
 const styles: Record<string, React.CSSProperties> = {
   page: { padding: '28px', maxWidth: '1300px', margin: '0 auto' },
   toolbar: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' },
-  filterBar: {
-    display: 'flex',
-    gap: '10px',
-    alignItems: 'center',
-    marginBottom: '18px',
-    background: 'var(--surface)',
-    padding: '14px 16px',
-    borderRadius: '12px',
-    border: '1px solid var(--border)',
-    boxShadow: 'var(--shadow-soft)',
-  },
   tableWrap: {
     background: 'var(--surface)',
     borderRadius: '14px',

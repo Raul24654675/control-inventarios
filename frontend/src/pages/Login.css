@@ -225,6 +225,46 @@
   position: relative;
 }
 
+.field:has(#login-email) {
+  isolation: isolate;
+}
+
+.field:has(#login-password) {
+  isolation: isolate;
+}
+
+.field:has(#login-email)::before {
+  content: '';
+  position: absolute;
+  left: 1px;
+  top: 1px;
+  bottom: 1px;
+  width: 46px;
+  border-radius: 13px 0 0 13px;
+  background: linear-gradient(180deg, rgba(18, 74, 67, 0.5) 0%, rgba(8, 35, 49, 0.62) 100%);
+  border-right: 1px solid rgba(56, 162, 133, 0.38);
+  box-shadow: inset -1px 0 0 rgba(103, 223, 186, 0.16);
+  opacity: 0.55;
+  transition: width 0.24s ease, opacity 0.24s ease, box-shadow 0.24s ease;
+  pointer-events: none;
+}
+
+.field:has(#login-password)::before {
+  content: '';
+  position: absolute;
+  left: 1px;
+  top: 1px;
+  bottom: 1px;
+  width: 46px;
+  border-radius: 13px 0 0 13px;
+  background: linear-gradient(180deg, rgba(18, 74, 67, 0.5) 0%, rgba(8, 35, 49, 0.62) 100%);
+  border-right: 1px solid rgba(56, 162, 133, 0.38);
+  box-shadow: inset -1px 0 0 rgba(103, 223, 186, 0.16);
+  opacity: 0.55;
+  transition: width 0.24s ease, opacity 0.24s ease, box-shadow 0.24s ease;
+  pointer-events: none;
+}
+
 .field-input {
   width: 100%;
   height: 58px;
@@ -233,10 +273,55 @@
   background: rgba(6, 18, 32, 0.82);
   color: #eaf5f2;
   font-size: 1.02rem;
-  padding: 20px 46px 12px 44px;
+  padding: 20px 92px 12px 56px;
   box-sizing: border-box;
   outline: none;
-  transition: border-color 0.25s ease, box-shadow 0.25s ease, background 0.2s ease, transform 0.2s ease;
+  transition:
+    border-color 0.25s ease,
+    box-shadow 0.25s ease,
+    background 0.2s ease,
+    transform 0.2s ease,
+    padding 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.field-input:focus:not(:placeholder-shown) {
+  padding-top: 24px;
+  padding-bottom: 8px;
+  line-height: 1.2;
+}
+
+.field-input:not(:focus):not(:placeholder-shown) {
+  padding-top: 18px;
+  padding-bottom: 14px;
+  line-height: 1.2;
+  animation: input-text-settle 360ms cubic-bezier(0.2, 0.85, 0.25, 1) both;
+}
+
+@keyframes input-text-settle {
+  0% {
+    padding-top: 24px;
+    padding-bottom: 8px;
+  }
+
+  65% {
+    padding-top: 16px;
+    padding-bottom: 16px;
+  }
+
+  100% {
+    padding-top: 18px;
+    padding-bottom: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .field-input {
+    transition: border-color 0.25s ease, box-shadow 0.25s ease, background 0.2s ease;
+  }
+
+  .field-input:not(:focus):not(:placeholder-shown) {
+    animation: none;
+  }
 }
 
 .field-input:-webkit-autofill,
@@ -262,10 +347,11 @@
 
 .field-icon {
   position: absolute;
-  left: 13px;
-  top: 16px;
-  width: 22px;
-  height: 22px;
+  left: 18px;
+  top: 50%;
+  width: 20px;
+  height: 20px;
+  transform: translateY(-50%);
   color: #57ccaa;
   display: inline-flex;
   align-items: center;
@@ -274,20 +360,71 @@
   transition: color 0.25s ease;
 }
 
+.field:has(#login-email) .field-icon {
+  z-index: 2;
+  transition: left 0.24s ease, color 0.25s ease, transform 0.24s ease;
+}
+
+.field:has(#login-password) .field-icon {
+  z-index: 2;
+  transition: left 0.24s ease, color 0.25s ease, transform 0.24s ease;
+}
+
+.field:has(#login-email:focus)::before,
+.field:has(#login-email:not(:placeholder-shown))::before {
+  width: 54px;
+  opacity: 0.9;
+  box-shadow: inset -1px 0 0 rgba(117, 240, 201, 0.24), 0 0 12px rgba(41, 186, 145, 0.2);
+}
+
+.field:has(#login-password:focus)::before,
+.field:has(#login-password:not(:placeholder-shown))::before {
+  width: 54px;
+  opacity: 0.9;
+  box-shadow: inset -1px 0 0 rgba(117, 240, 201, 0.24), 0 0 12px rgba(41, 186, 145, 0.2);
+}
+
+.field:has(#login-email:focus) .field-icon,
+.field:has(#login-email:not(:placeholder-shown)) .field-icon {
+  left: 12px;
+  transform: translateY(-50%) translateX(-2px);
+}
+
+.field:has(#login-password:focus) .field-icon,
+.field:has(#login-password:not(:placeholder-shown)) .field-icon {
+  left: 12px;
+  transform: translateY(-50%) translateX(-2px);
+}
+
+.field:has(#login-email:focus) #login-email,
+.field:has(#login-email:not(:placeholder-shown)) #login-email {
+  padding-left: 68px;
+  background:
+    linear-gradient(90deg, rgba(14, 57, 55, 0.56) 0 56px, rgba(7, 24, 42, 0.95) 56px 100%);
+}
+
+.field:has(#login-password:focus) #login-password,
+.field:has(#login-password:not(:placeholder-shown)) #login-password {
+  padding-left: 68px;
+  background:
+    linear-gradient(90deg, rgba(14, 57, 55, 0.56) 0 56px, rgba(7, 24, 42, 0.95) 56px 100%);
+}
+
 .field:focus-within .field-icon {
   color: #5ff6be;
 }
 
 .field-label {
   position: absolute;
-  left: 44px;
-  top: 18px;
+  left: 56px;
+  top: 50%;
   color: #8ab5ac;
   font-size: 0.97rem;
   line-height: 1;
   transition: transform 0.2s ease, color 0.2s ease, font-size 0.2s ease;
   pointer-events: none;
   transform-origin: left top;
+  transform: translateY(-50%);
 }
 
 .field-input:focus + .field-label,
@@ -297,18 +434,56 @@
   color: #6ef5c1;
 }
 
+#login-email + .field-label {
+  z-index: 2;
+}
+
+#login-email:focus + .field-label,
+#login-email:not(:placeholder-shown) + .field-label {
+  transform: translateY(-22px);
+  font-size: 0.72rem;
+  color: #76ffd0;
+  background: rgba(6, 18, 32, 0.96);
+  padding: 0 6px;
+  border-radius: 999px;
+}
+
+#login-password + .field-label {
+  z-index: 2;
+}
+
+#login-password:focus + .field-label,
+#login-password:not(:placeholder-shown) + .field-label {
+  transform: translateY(-22px);
+  font-size: 0.72rem;
+  color: #76ffd0;
+  background: rgba(6, 18, 32, 0.96);
+  padding: 0 6px;
+  border-radius: 999px;
+}
+
 .field-line {
   position: absolute;
   left: 9px;
   right: 9px;
-  bottom: 5px;
+  bottom: 4px;
   height: 2px;
   border-radius: 999px;
   background: linear-gradient(90deg, #1f8967 0%, #3ee8b2 50%, #1fcf8f 100%);
   transform: scaleX(0);
   transform-origin: center;
   opacity: 0;
+  z-index: 1;
   transition: transform 0.24s ease, opacity 0.24s ease;
+}
+
+/* Reserva visual para iconos a la derecha y evita cruces con el subrayado */
+.field:has(#login-email) .field-line {
+  right: 42px;
+}
+
+.field:has(#login-password) .field-line {
+  right: 96px;
 }
 
 .field:focus-within .field-line {
@@ -318,32 +493,34 @@
 
 .caps-indicator {
   position: absolute;
-  top: 17px;
+  top: 50%;
   width: 22px;
   height: 22px;
+  transform: translateY(-50%);
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: #6ef5c1;
-  background: rgba(31, 146, 108, 0.18);
+  background: rgba(6, 22, 36, 0.92);
   border: 1px solid rgba(110, 245, 193, 0.42);
   box-shadow: 0 0 10px rgba(63, 228, 171, 0.35);
   pointer-events: none;
+  z-index: 3;
 }
 
 .caps-indicator-email {
-  right: 12px;
+  right: 14px;
 }
 
 .caps-indicator-password {
-  right: 46px;
+  right: 50px;
 }
 
 .toggle-pass {
   position: absolute;
-  right: 10px;
-  top: 13px;
+  right: 12px;
+  top: 50%;
   width: 30px;
   height: 30px;
   border: none;
@@ -354,16 +531,18 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  transform: translateY(-50%);
+  z-index: 3;
   transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
 
 .toggle-pass:hover {
-  background: rgba(51, 163, 128, 0.2);
+  background: transparent;
   color: #7af5cc;
 }
 
 .toggle-pass:active {
-  transform: scale(0.92);
+  transform: translateY(-50%) scale(0.92);
 }
 
 .toggle-pass.active {
@@ -524,6 +703,28 @@
   background: #ffffff;
 }
 
+.theme-light .field:has(#login-email)::before,
+.theme-light .field:has(#login-password)::before {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(236, 248, 242, 0.98) 100%);
+  border-right: 1px solid rgba(88, 168, 137, 0.34);
+  box-shadow: inset -1px 0 0 rgba(55, 170, 130, 0.14);
+  opacity: 0.95;
+}
+
+.theme-light .field:has(#login-email:focus)::before,
+.theme-light .field:has(#login-email:not(:placeholder-shown))::before,
+.theme-light .field:has(#login-password:focus)::before,
+.theme-light .field:has(#login-password:not(:placeholder-shown))::before {
+  box-shadow: inset -1px 0 0 rgba(55, 170, 130, 0.2), 0 0 10px rgba(36, 184, 129, 0.16);
+}
+
+.theme-light .field:has(#login-email:focus) #login-email,
+.theme-light .field:has(#login-email:not(:placeholder-shown)) #login-email,
+.theme-light .field:has(#login-password:focus) #login-password,
+.theme-light .field:has(#login-password:not(:placeholder-shown)) #login-password {
+  background: linear-gradient(90deg, rgba(241, 252, 247, 0.98) 0 56px, #ffffff 56px 100%);
+}
+
 .theme-light .field-icon {
   color: #2a9d73;
 }
@@ -538,6 +739,14 @@
 
 .theme-light .field-input:focus + .field-label,
 .theme-light .field-input:not(:placeholder-shown) + .field-label {
+  color: #139b6a;
+}
+
+.theme-light #login-email:focus + .field-label,
+.theme-light #login-email:not(:placeholder-shown) + .field-label,
+.theme-light #login-password:focus + .field-label,
+.theme-light #login-password:not(:placeholder-shown) + .field-label {
+  background: rgba(255, 255, 255, 0.98);
   color: #139b6a;
 }
 

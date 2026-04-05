@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Get, Query, BadRequestException, Patch, Param } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Get, Query, BadRequestException, Patch, Param, Delete, Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { RolesGuard } from './roles.guard';
@@ -54,5 +54,18 @@ export class AuthController {
     }
 
     return this.authService.updateOperadorPassword(parsedId, data?.password);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @Delete('users/:id')
+  deleteOperador(@Param('id') id: string, @Req() req: any) {
+    const parsedId = Number(id);
+    if (!Number.isInteger(parsedId) || parsedId <= 0) {
+      throw new BadRequestException('El id debe ser un numero entero mayor o igual a 1');
+    }
+
+    const actorId = Number(req?.user?.sub);
+    return this.authService.deleteOperador(parsedId, actorId);
   }
 }

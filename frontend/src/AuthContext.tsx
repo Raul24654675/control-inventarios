@@ -31,6 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [theme])
 
   function login(token: string, rol: Rol, email: string) {
+    localStorage.setItem(`last-login:${email}`, new Date().toISOString())
     setAuth({ token, rol, email })
   }
 

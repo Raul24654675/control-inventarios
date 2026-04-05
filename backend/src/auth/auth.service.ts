@@ -161,4 +161,30 @@ export class AuthService {
 
     return { message: 'Clave actualizada correctamente' };
   }
+
+  async deleteOperador(userId: number, actorId?: number) {
+    if (Number.isInteger(actorId) && actorId === userId) {
+      throw new BadRequestException('No puedes eliminar tu propio usuario');
+    }
+
+    const user = await this.prisma.usuario.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.USER_NOT_FOUND);
+    }
+
+    if (user.rol !== 'OPERADOR') {
+      throw new BadRequestException('Solo se pueden eliminar usuarios con rol OPERADOR');
+    }
+
+    const historialCount = await this.prisma.historialCambios.count({
+      where: { usuarioId: userId },
+    });
+
+    if (historialCount > 0) {
+      throw new BadRequestException('No se puede eliminar el usuario porque tiene registros en historial');
+    }
+
+    await this.prisma.usuario.delete({ where: { id: userId } });
+    return { message: 'Usuario eliminado correctamente' };
+  }
 }

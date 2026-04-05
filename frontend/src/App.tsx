@@ -6,6 +6,7 @@ import Equipos from './pages/Equipos'
 import Historial from './pages/Historial'
 import Usuarios from './pages/Usuarios'
 import Profile from './pages/Profile'
+import Resumen from './pages/Resumen'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { token } = useAuth()
@@ -19,7 +20,7 @@ export default function App() {
     <Routes>
       <Route
         path="/login"
-        element={token ? <Navigate to="/equipos" replace /> : <Login />}
+        element={token ? <Navigate to="/resumen" replace /> : <Login />}
       />
       <Route
         element={
@@ -28,12 +29,13 @@ export default function App() {
           </PrivateRoute>
         }
       >
+        <Route path="/resumen" element={<Resumen />} />
         <Route path="/equipos" element={<Equipos />} />
         <Route path="/historial" element={<Historial />} />
         <Route path="/usuarios" element={<Usuarios />} />
         <Route path="/perfil" element={<Profile />} />
       </Route>
-      <Route path="*" element={<Navigate to={token ? '/equipos' : '/login'} replace />} />
+      <Route path="*" element={<Navigate to={token ? '/resumen' : '/login'} replace />} />
     </Routes>
   )
 }
