@@ -92,7 +92,7 @@
 }
 
 .filters-grid-users {
-  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  grid-template-columns: repeat(4, minmax(220px, 1fr));
 }
 
 .filter-item {
@@ -438,7 +438,25 @@
   animation: usuarios-modal-fade-in 0.24s ease both;
 }
 
-.user-profile-modal-card {
+.edit-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 320;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.46);
+  backdrop-filter: blur(6px);
+  animation: usuarios-modal-fade-in 0.24s ease both;
+}
+
+.edit-modal-overlay.is-closing {
+  animation: usuarios-modal-fade-out 0.22s ease both;
+}
+
+.user-profile-modal-card,
+.edit-modal-card {
   width: min(100%, 640px);
   border-radius: 18px;
   padding: 20px;
@@ -446,6 +464,103 @@
   background: color-mix(in srgb, var(--surface) 96%, transparent);
   box-shadow: 0 26px 56px rgba(9, 20, 34, 0.28);
   animation: usuarios-modal-rise-in 0.3s cubic-bezier(0.25, 0.1, 0.25, 1) both;
+}
+
+.edit-modal-card.is-closing {
+  animation: usuarios-modal-rise-out 0.22s ease both;
+}
+
+.edit-modal-title {
+  margin-top: 0;
+  margin-bottom: 18px;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.edit-modal-form {
+  display: grid;
+  gap: 16px;
+}
+
+.edit-modal-field {
+  display: grid;
+  gap: 10px;
+  opacity: 0;
+  transform: translateY(10px);
+  animation: filter-item-in 0.32s ease-out both;
+}
+
+.edit-modal-select-wrap {
+  position: relative;
+  display: block;
+}
+
+.edit-modal-chevron {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border-right: 2px solid color-mix(in srgb, var(--text-soft) 82%, transparent);
+  border-bottom: 2px solid color-mix(in srgb, var(--text-soft) 82%, transparent);
+  transform: translateY(-50%) rotate(45deg);
+  pointer-events: none;
+}
+
+.modal-control {
+  width: 100%;
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--border-main);
+  background: var(--surface-soft);
+  color: var(--text-main);
+  padding: 0 14px;
+  box-sizing: border-box;
+}
+
+.modal-control:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--green-main) 58%, var(--border-main));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green-main) 18%, transparent);
+}
+
+.edit-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.edit-modal-save {
+  min-width: 150px;
+}
+
+.edit-modal-cancel {
+  min-width: 110px;
+}
+
+@keyframes usuarios-modal-fade-out {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes usuarios-modal-rise-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
 }
 
 .user-profile-modal-head {

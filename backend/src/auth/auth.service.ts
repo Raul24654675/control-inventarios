@@ -79,8 +79,45 @@ export class AuthService {
       throw new UnauthorizedException(ERROR_MESSAGES.AUTH.ROLE_ACTION_MISMATCH);
     }
 
+    if (!user.activo) {
+      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.USER_INACTIVE);
+    }
+
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) throw new UnauthorizedException(ERROR_MESSAGES.AUTH.WRONG_PASSWORD);
+
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      rol: user.rol,
+    };
+
+    return {
+      access_token: this.jwtService.sign(payload),
+    };
+  }
+
+  async login(email: string, password: string) {
+    if (!email || !password) {
+      throw new BadRequestException(ERROR_MESSAGES.AUTH.LOGIN_REQUIRED_FIELDS);
+    }
+
+    const user = await this.prisma.usuario.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.USER_NOT_FOUND);
+    }
+
+    if (!user.activo) {
+      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.USER_INACTIVE);
+    }
+
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) {
+      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.WRONG_PASSWORD);
+    }
 
     const payload = {
       sub: user.id,
@@ -101,7 +138,7 @@ export class AuthService {
     return this.loginByRole(email, password, 'OPERADOR');
   }
 
-  async listUsers(filters: { id?: string; nombre?: string; email?: string } = {}) {
+  async listUsers(filters: { id?: string; nombre?: string; email?: string; activo?: boolean } = {}) {
     const where: any = {};
 
     if (filters.nombre) {
@@ -109,6 +146,9 @@ export class AuthService {
     }
     if (filters.email) {
       where.email = { contains: filters.email, mode: 'insensitive' };
+    }
+    if (typeof filters.activo === 'boolean') {
+      where.activo = filters.activo;
     }
 
     const users = await this.prisma.usuario.findMany({
@@ -118,6 +158,7 @@ export class AuthService {
         nombre: true,
         email: true,
         rol: true,
+        activo: true,
         creadoEn: true,
       },
       orderBy: {
@@ -160,6 +201,24 @@ export class AuthService {
     });
 
     return { message: 'Clave actualizada correctamente' };
+  }
+
+  async updateOperadorActivo(userId: number, activo: boolean) {
+    const user = await this.prisma.usuario.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.USER_NOT_FOUND);
+    }
+    if (user.rol !== 'OPERADOR') {
+      throw new BadRequestException('Solo se pueden cambiar el estado de usuarios con rol OPERADOR');
+    }
+
+    const action = activo ? 'reactivado' : 'marcado como inactivo';
+    await this.prisma.usuario.update({
+      where: { id: userId },
+      data: { activo },
+    });
+
+    return { message: `Usuario ${action} correctamente`, activo };
   }
 
   async deleteOperador(userId: number, actorId?: number) {

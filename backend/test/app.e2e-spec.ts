@@ -79,6 +79,22 @@ describe('AppController (e2e)', () => {
       opToken = res2.body.access_token;
     });
 
+    it('should login admin with generic login endpoint', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: 'adm@e.com', password: 'pwd' });
+      expect(res.status).toBe(201);
+      expect(res.body.access_token).toBeTruthy();
+    });
+
+    it('should login operador with generic login endpoint', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: 'op@e.com', password: 'pwd' });
+      expect(res.status).toBe(201);
+      expect(res.body.access_token).toBeTruthy();
+    });
+
     it('should return Usuario no encontrado when user does not exist', async () => {
       const res = await request(app.getHttpServer())
         .post('/auth/login/admin')
@@ -139,12 +155,11 @@ describe('AppController (e2e)', () => {
       expect(res.body.estado).toBe('ACTIVO');
     });
 
-    it('operador cannot delete equipo', async () => {
+    it('DELETE /equipos/:id should not exist', async () => {
       const res = await request(app.getHttpServer())
         .delete(`/equipos/${createdId}`)
-        .set('Authorization', `Bearer ${opToken}`);
-      expect(res.status).toBe(403);
-      expect(res.body.message).toBe('La accion no esta permitida para este rol');
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(res.status).toBe(404);
     });
 
     it('should return token required when auth header is missing', async () => {
@@ -159,14 +174,6 @@ describe('AppController (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`);
       expect(res.status).toBe(404);
       expect(res.body.message).toBe('Equipo no encontrado');
-    });
-
-    it('admin can delete equipo without 500', async () => {
-      const res = await request(app.getHttpServer())
-        .delete(`/equipos/${createdId}`)
-        .set('Authorization', `Bearer ${adminToken}`);
-      expect(res.status).toBe(200);
-      expect(res.body.id).toBe(createdId);
     });
 
     it('history endpoint returns entries', async () => {

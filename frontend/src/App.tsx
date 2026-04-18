@@ -13,6 +13,11 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   return token ? <>{children}</> : <Navigate to="/login" replace />
 }
 
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { rol } = useAuth()
+  return rol === 'ADMIN' ? <>{children}</> : <Navigate to="/resumen" replace />
+}
+
 export default function App() {
   const { token } = useAuth()
 
@@ -32,7 +37,11 @@ export default function App() {
         <Route path="/resumen" element={<Resumen />} />
         <Route path="/equipos" element={<Equipos />} />
         <Route path="/historial" element={<Historial />} />
-        <Route path="/usuarios" element={<Usuarios />} />
+        <Route path="/usuarios" element={
+          <AdminRoute>
+            <Usuarios />
+          </AdminRoute>
+        } />
         <Route path="/perfil" element={<Profile />} />
       </Route>
       <Route path="*" element={<Navigate to={token ? '/resumen' : '/login'} replace />} />

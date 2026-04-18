@@ -1,26 +1,28 @@
 import { useEffect, useState } from 'react'
 import api from '../api'
 import type { HistorialEntry } from '../types'
-import { useAuth } from '../useAuth'
 import './Historial.css'
 
 export default function Historial() {
-  const { rol } = useAuth()
-  const isAdmin = rol === 'ADMIN'
-
   const [entries, setEntries] = useState<HistorialEntry[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [equipoId, setEquipoId] = useState('')
-  const [showConfirmDelete, setShowConfirmDelete] = useState(false)
-  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [fechaDesde, setFechaDesde] = useState('')
+  const [fechaHasta, setFechaHasta] = useState('')
+  const [dateError, setDateError] = useState('')
   const [isClearingFilters, setIsClearingFilters] = useState(false)
 
-  async function load(id?: string) {
+  async function load(id?: string, desde?: string, hasta?: string) {
     setLoading(true)
     setError('')
     try {
-      const url = id ? `/historial?equipoId=${id}` : '/historial'
+      const params = new URLSearchParams()
+      if (id) params.set('equipoId', id)
+      if (desde) params.set('fechaDesde', desde)
+      if (hasta) params.set('fechaHasta', hasta)
+      const query = params.toString()
+      const url = query ? `/historial?${query}` : '/historial'
       const { data } = await api.get<HistorialEntry[]>(url)
       setEntries(data)
     } catch {
@@ -34,23 +36,26 @@ export default function Historial() {
 
   function clearHistoryFilter() {
     setEquipoId('')
+    setFechaDesde('')
+    setFechaHasta('')
+    setDateError('')
     load()
     setIsClearingFilters(true)
     setTimeout(() => setIsClearingFilters(false), 430)
   }
 
-  async function handleClearHistorial() {
-    setDeleteLoading(true)
-    try {
-      await api.delete('/historial')
-      setShowConfirmDelete(false)
-      setEquipoId('')
-      load()
-    } catch {
-      setError('No se pudo eliminar el historial.')
-    } finally {
-      setDeleteLoading(false)
+  function applyHistoryFilters() {
+    setDateError('')
+    if ((fechaDesde && !fechaHasta) || (!fechaDesde && fechaHasta)) {
+      setDateError('Debe elegir fecha desde y fecha hasta para filtrar por rango.')
+      return
     }
+    if (fechaDesde && fechaHasta && fechaDesde > fechaHasta) {
+      setDateError('La fecha desde debe ser anterior o igual a la fecha hasta.')
+      return
+    }
+
+    load(equipoId || undefined, fechaDesde || undefined, fechaHasta || undefined)
   }
 
   function accionBadge(accion: string) {
@@ -104,11 +109,6 @@ export default function Historial() {
     <div style={styles.page}>
       <div style={styles.toolbar}>
         <h2 style={{ margin: 0 }}>Historial de cambios</h2>
-        {isAdmin && (
-          <button className="btn-danger" onClick={() => setShowConfirmDelete(true)}>
-            Borrar historial
-          </button>
-        )}
       </div>
 
       <section className={`history-filters-card ${isClearingFilters ? 'is-clearing' : ''}`} aria-label="Filtros de historial">
@@ -128,11 +128,37 @@ export default function Historial() {
               onChange={e => setEquipoId(e.target.value)}
             />
           </label>
+
+          <label className="history-filter-item" htmlFor="history-filter-fecha-desde">
+            <span className="history-filter-label">FECHA DESDE</span>
+            <input
+              id="history-filter-fecha-desde"
+              className="history-filter-control history-filter-date"
+              type="date"
+              value={fechaDesde}
+              max={fechaHasta || undefined}
+              onChange={e => setFechaDesde(e.target.value)}
+            />
+          </label>
+
+          <label className="history-filter-item" htmlFor="history-filter-fecha-hasta">
+            <span className="history-filter-label">FECHA HASTA</span>
+            <input
+              id="history-filter-fecha-hasta"
+              className="history-filter-control history-filter-date"
+              type="date"
+              value={fechaHasta}
+              min={fechaDesde || undefined}
+              onChange={e => setFechaHasta(e.target.value)}
+            />
+          </label>
         </div>
+
+        {dateError && <div className="error-box" style={{ marginTop: '10px' }}>{dateError}</div>}
 
         <div className="history-filters-divider" aria-hidden="true" />
         <div className="history-filters-actions">
-          <button className="btn-primary" onClick={() => load(equipoId || undefined)}>
+          <button className="btn-primary" onClick={applyHistoryFilters}>
             Filtrar
           </button>
           <button className="btn-ghost" onClick={clearHistoryFilter}>
@@ -183,30 +209,6 @@ export default function Historial() {
         )}
       </div>
 
-      {showConfirmDelete && (
-        <div style={styles.overlay} onClick={() => setShowConfirmDelete(false)}>
-          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <p style={{ margin: 0, fontWeight: 600 }}>
-              {entries.length === 0 ? 'historial vacio' : 'Seguro que quiere eliminar el historial'}
-            </p>
-            <div style={styles.modalActions}>
-              {entries.length > 0 ? (
-                <button
-                  className="btn-danger"
-                  onClick={handleClearHistorial}
-                  disabled={deleteLoading}
-                >
-                  {deleteLoading ? 'Eliminando...' : 'Aceptar'}
-                </button>
-              ) : (
-                <button className="btn-ghost" onClick={() => setShowConfirmDelete(false)}>
-                  Cerrar
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

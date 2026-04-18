@@ -19,15 +19,41 @@ export class HistorialController {
 
   @Roles('ADMIN', 'OPERADOR')
   @Get()
-  findAll(@Query('equipoId') equipoId?: string) {
+  findAll(
+    @Query('equipoId') equipoId?: string,
+    @Query('fechaDesde') fechaDesde?: string,
+    @Query('fechaHasta') fechaHasta?: string,
+  ) {
+    let parsedEquipoId: number | undefined
     if (equipoId) {
-      const parsed = Number(equipoId);
-      if (!Number.isInteger(parsed) || parsed <= 0) {
-        throw new BadRequestException(ERROR_MESSAGES.HISTORIAL.INVALID_EQUIPO_ID);
+      parsedEquipoId = Number(equipoId)
+      if (!Number.isInteger(parsedEquipoId) || parsedEquipoId <= 0) {
+        throw new BadRequestException(ERROR_MESSAGES.HISTORIAL.INVALID_EQUIPO_ID)
       }
-      return this.historialService.findByEquipo(parsed);
     }
-    return this.historialService.findAll();
+
+    if ((fechaDesde && !fechaHasta) || (!fechaDesde && fechaHasta)) {
+      throw new BadRequestException(ERROR_MESSAGES.HISTORIAL.INVALID_DATE_RANGE)
+    }
+
+    let parsedFechaDesde: Date | undefined
+    let parsedFechaHasta: Date | undefined
+    if (fechaDesde && fechaHasta) {
+      parsedFechaDesde = new Date(fechaDesde)
+      parsedFechaHasta = new Date(fechaHasta)
+      if (Number.isNaN(parsedFechaDesde.getTime()) || Number.isNaN(parsedFechaHasta.getTime())) {
+        throw new BadRequestException(ERROR_MESSAGES.HISTORIAL.INVALID_DATE_RANGE)
+      }
+      if (parsedFechaDesde > parsedFechaHasta) {
+        throw new BadRequestException(ERROR_MESSAGES.HISTORIAL.INVALID_DATE_RANGE)
+      }
+    }
+
+    return this.historialService.findAll({
+      equipoId: parsedEquipoId,
+      fechaDesde: parsedFechaDesde,
+      fechaHasta: parsedFechaHasta,
+    })
   }
 
   @Roles('ADMIN')

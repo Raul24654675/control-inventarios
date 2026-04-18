@@ -178,43 +178,6 @@
   box-shadow: 0 24px 55px rgba(0, 0, 0, 0.45), inset 0 0 30px rgba(40, 180, 140, 0.08);
 }
 
-.login-tabs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-  background: rgba(10, 26, 43, 0.85);
-  border: 1px solid rgba(59, 128, 113, 0.3);
-  border-radius: 14px;
-  padding: 4px;
-  margin-bottom: 22px;
-}
-
-.login-tab {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: none;
-  border-radius: 10px;
-  padding: 11px 12px;
-  background: transparent;
-  color: #8da6a0;
-  font-size: 1.03rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.22s ease;
-}
-
-.login-tab:hover {
-  background: rgba(31, 85, 70, 0.35);
-}
-
-.login-tab.active {
-  background: linear-gradient(120deg, #189267 0%, #1cb17c 100%);
-  color: #ebfffa;
-  box-shadow: 0 10px 22px rgba(35, 173, 124, 0.38);
-}
-
 .login-form {
   display: flex;
   flex-direction: column;
@@ -337,6 +300,12 @@
 .field-input:hover {
   border-color: rgba(60, 152, 130, 0.85);
   background: rgba(7, 21, 38, 0.9);
+}
+
+/* Hide native password reveal controls so only the custom green eye is shown. */
+#login-password::-ms-reveal,
+#login-password::-ms-clear {
+  display: none;
 }
 
 .field:focus-within .field-input {
@@ -659,24 +628,6 @@
   box-shadow: 0 20px 42px rgba(34, 113, 87, 0.18), inset 0 0 22px rgba(45, 179, 124, 0.07);
 }
 
-.theme-light .login-tabs {
-  background: rgba(230, 246, 238, 0.95);
-  border-color: rgba(65, 149, 122, 0.25);
-}
-
-.theme-light .login-tab {
-  color: #3b6f60;
-}
-
-.theme-light .login-tab:hover {
-  background: rgba(62, 143, 112, 0.15);
-}
-
-.theme-light .login-tab.active {
-  color: #f7fffb;
-  box-shadow: 0 9px 20px rgba(35, 143, 107, 0.28);
-}
-
 .theme-light .field-input {
   border-color: rgba(88, 168, 137, 0.45);
   background: rgba(248, 255, 251, 0.98);
@@ -807,10 +758,6 @@
   .login-card {
     max-width: 92vw;
     padding: 20px 16px 16px;
-  }
-
-  .login-tab {
-    font-size: 0.92rem;
   }
 
   .field-input {

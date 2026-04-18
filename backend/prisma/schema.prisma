@@ -19,9 +19,11 @@ model Usuario {
   email     String   @unique
   password  String
   rol       Rol
+  activo    Boolean  @default(true)
   creadoEn  DateTime @default(now())
 
-  historial HistorialCambios[]
+  historial       HistorialCambios[]
+  inactividades   RegistroInactividad[]
 }
 
 model Equipo {
@@ -34,7 +36,8 @@ model Equipo {
   creadoEn      DateTime @default(now())
   actualizadoEn DateTime @updatedAt
 
-  historial     HistorialCambios[]
+  historial        HistorialCambios[]
+  inactividades    RegistroInactividad[]
 }
 
 model HistorialCambios {
@@ -47,6 +50,22 @@ model HistorialCambios {
   valorAnterior String?
   valorNuevo    String?
   fecha         DateTime @default(now())
+}
+
+model RegistroInactividad {
+  id                    Int           @id @default(autoincrement())
+  equipo                Equipo        @relation(fields: [equipoId], references: [id], onDelete: Cascade)
+  equipoId              Int
+  usuario               Usuario       @relation(fields: [usuarioId], references: [id])
+  usuarioId             Int
+  motivo                MotivoInact
+  descripcion           String
+  tiempoEstimado        TiempoEstimado
+  accionRequerida       AccionRequerida
+  prioridad             Prioridad
+  evidenciaUrl          String?
+  creadoEn              DateTime      @default(now())
+  reactivacionFecha     DateTime?
 }
 
 enum Rol {
@@ -64,4 +83,36 @@ enum Estado {
   Activo
   Inactivo
   EnMantenimiento @map("En mantenimiento")
+}
+
+enum MotivoInact {
+  FueraDeServicio @map("Fuera de servicio")
+  SinUsoTemporal @map("Sin uso temporal")
+  AveriaDetectada @map("Avería detectada")
+  FaltaDeOperador @map("Falta de operador")
+  Obsolescencia
+  BajaAdministrativa @map("Baja administrativa")
+  EnEsperaDeRepuestos @map("En espera de repuestos")
+  DesconectadoPorSeguridad @map("Desconectado por seguridad")
+}
+
+enum TiempoEstimado {
+  Horas
+  Dias @map("Días")
+  Indefinido
+}
+
+enum AccionRequerida {
+  Inspeccion @map("Inspección")
+  Reparacion @map("Reparación")
+  Repuesto
+  Autorizacion @map("Autorización")
+  Reemplazo
+}
+
+enum Prioridad {
+  Baja
+  Media
+  Alta
+  Critica @map("Crítica")
 }

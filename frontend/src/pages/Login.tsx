@@ -1,4 +1,4 @@
-﻿import { useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
 import { useAuth } from '../useAuth'
@@ -28,7 +28,6 @@ function decodeEmail(token: string): string {
 export default function Login() {
   const { login, theme, setTheme } = useAuth()
   const navigate = useNavigate()
-  const [tab, setTab] = useState<'admin' | 'operador'>('admin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -45,15 +44,18 @@ export default function Login() {
     e.preventDefault()
     setError('')
     setLoading(true)
+
     try {
-      const endpoint = tab === 'admin' ? '/auth/login/admin' : '/auth/login/operador'
-      const { data } = await api.post<{ access_token: string }>(endpoint, { email, password })
+      const { data } = await api.post<{ access_token: string }>('/auth/login', {
+        email,
+        password,
+      })
       const token = data.access_token
       login(token, decodeRol(token), decodeEmail(token))
       navigate('/equipos', { replace: true })
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      setError(msg ?? 'Error al iniciar sesion')
+      setError(msg ?? 'Error al iniciar sesión')
     } finally {
       setLoading(false)
     }
@@ -108,31 +110,6 @@ export default function Login() {
       </div>
 
       <div className="login-card">
-        <div className="login-tabs">
-          <button
-            className={`login-tab ${tab === 'admin' ? 'active' : ''}`}
-            type="button"
-            onClick={() => { setTab('admin'); setError('') }}
-          >
-            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M12 3l7 3v5c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6l7-3Z" />
-              <path d="m9 12 2 2 4-4" />
-            </svg>
-            Administrador
-          </button>
-          <button
-            className={`login-tab ${tab === 'operador' ? 'active' : ''}`}
-            type="button"
-            onClick={() => { setTab('operador'); setError('') }}
-          >
-            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <circle cx="12" cy="8" r="4" />
-              <path d="M4 20a8 8 0 0 1 16 0" />
-            </svg>
-            Operador
-          </button>
-        </div>
-
         <form onSubmit={handleSubmit} className="login-form">
           <div className="field">
             <span className="field-icon" aria-hidden="true">
@@ -221,12 +198,6 @@ export default function Login() {
             {loading ? 'Ingresando...' : 'Iniciar sesion'}
           </button>
         </form>
-
-        <div className="login-footnote">
-          <span className="footnote-ok">Acceso autorizado</span>
-          <span className="footnote-sep">•</span>
-          <span>Conexion cifrada</span>
-        </div>
       </div>
     </div>
   )

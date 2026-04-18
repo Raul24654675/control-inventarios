@@ -3,7 +3,6 @@ import {
   Get,
   Post,
   Patch,
-  Delete,
   Param,
   Body,
   Req,
@@ -17,6 +16,7 @@ import type { Request as ExpressRequest } from 'express';
 
 import { EquipoService } from './equipo.service';
 import { FindEquiposDto } from './dto/find-equipos.dto';
+import { UpdateEstadoEquipoDto } from './dto/update-estado-equipo.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -69,11 +69,16 @@ export class EquipoController {
     return this.equipoService.update(this.parseEquipoId(id), data, req.user as any);
   }
 
-  // ❌ ELIMINAR EQUIPO
-  // SOLO ADMIN
-  @Roles('ADMIN')
-  @Delete(':id')
-  remove(@Param('id') id: string, @Req() req: ExpressRequest) {
-    return this.equipoService.remove(this.parseEquipoId(id), req.user as any);
+  // 🚨 ACTUALIZAR ESTADO DEL EQUIPO (con detalles de inactividad)
+  // ADMIN y OPERADOR
+  @Roles('ADMIN', 'OPERADOR')
+  @Patch(':id/estado')
+  @UsePipes(new ValidationPipe({ forbidNonWhitelisted: true, skipMissingProperties: true }))
+  updateEstado(
+    @Param('id') id: string,
+    @Body() dto: UpdateEstadoEquipoDto,
+    @Req() req: ExpressRequest,
+  ) {
+    return this.equipoService.updateEstado(this.parseEquipoId(id), dto, req.user as any);
   }
 }

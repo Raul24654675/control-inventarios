@@ -50,16 +50,6 @@ export default function Resumen() {
   const [historial, setHistorial] = useState<HistorialEntry[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [showDeleteModal, setShowDeleteModal] = useState(false)
-  const [isClosingDeleteModal, setIsClosingDeleteModal] = useState(false)
-  const [deleteFilters, setDeleteFilters] = useState({ id: '', nombre: '', sector: '', estado: '' })
-  const [deletePage, setDeletePage] = useState(1)
-  const [deletingId, setDeletingId] = useState<number | null>(null)
-  const [deleteError, setDeleteError] = useState('')
-  const [pendingDelete, setPendingDelete] = useState<{ id: number; nombre: string } | null>(null)
-  const [deleteTableMotionKey, setDeleteTableMotionKey] = useState(0)
-
-  const deletePageSize = 5
 
   useEffect(() => {
     async function loadResumen() {
@@ -263,80 +253,7 @@ export default function Resumen() {
     return [...inactivos, ...mantenimientoAntiguo, ...sinUbicacion].slice(0, 8)
   }, [equipos])
 
-  const filteredEquiposToDelete = useMemo(() => {
-    const idFilter = deleteFilters.id.trim()
-    const nameFilter = deleteFilters.nombre.trim().toLowerCase()
-
-    return equipos
-      .filter(item => {
-        if (idFilter && !String(item.id).includes(idFilter)) return false
-        if (nameFilter && !item.nombre.toLowerCase().includes(nameFilter)) return false
-        if (deleteFilters.sector && item.sector !== deleteFilters.sector) return false
-        if (deleteFilters.estado && item.estado !== deleteFilters.estado) return false
-        return true
-      })
-  }, [deleteFilters.estado, deleteFilters.id, deleteFilters.nombre, deleteFilters.sector, equipos])
-
-  const deleteTotalPages = Math.max(1, Math.ceil(filteredEquiposToDelete.length / deletePageSize))
-
-  const equiposToDelete = useMemo(() => {
-    const start = (deletePage - 1) * deletePageSize
-    return filteredEquiposToDelete.slice(start, start + deletePageSize)
-  }, [deletePage, filteredEquiposToDelete])
-
-  useEffect(() => {
-    if (!showDeleteModal) return
-    setDeletePage(1)
-    setDeleteTableMotionKey(current => current + 1)
-  }, [deleteFilters.estado, deleteFilters.id, deleteFilters.nombre, deleteFilters.sector, showDeleteModal])
-
-  useEffect(() => {
-    if (deletePage > deleteTotalPages) {
-      setDeletePage(deleteTotalPages)
-    }
-  }, [deletePage, deleteTotalPages])
-
-  function openDeleteModal() {
-    setDeleteError('')
-    setDeleteFilters({ id: '', nombre: '', sector: '', estado: '' })
-    setDeletePage(1)
-    setPendingDelete(null)
-    setIsClosingDeleteModal(false)
-    setShowDeleteModal(true)
-  }
-
-  function closeDeleteModal() {
-    if (isClosingDeleteModal) return
-    setIsClosingDeleteModal(true)
-    setTimeout(() => {
-      setShowDeleteModal(false)
-      setIsClosingDeleteModal(false)
-      setPendingDelete(null)
-    }, 300)
-  }
-
-  function askDeleteEquipo(id: number, nombre: string) {
-    setPendingDelete({ id, nombre })
-  }
-
-  async function confirmDeleteEquipo() {
-    if (!pendingDelete) return
-
-    setDeletingId(pendingDelete.id)
-    setDeleteError('')
-
-    try {
-      await api.delete(`/equipos/${pendingDelete.id}`)
-      setEquipos(current => current.filter(item => item.id !== pendingDelete.id))
-      setPendingDelete(null)
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      setDeleteError(msg ?? 'No se pudo eliminar el equipo seleccionado.')
-    } finally {
-      setDeletingId(null)
-    }
-  }
-
+  
   return (
     <div className="resumen-page">
       <section className="resumen-actions-top" aria-label="Acciones rapidas de resumen">
@@ -358,17 +275,6 @@ export default function Resumen() {
             </span>
           </button>
 
-          <button
-            type="button"
-            className="resumen-action-btn"
-            onClick={openDeleteModal}
-          >
-            <span className="resumen-action-icon" aria-hidden="true">-</span>
-            <span>
-              <strong>Eliminar equipo</strong>
-              <small>Buscar y eliminar desde modal flotante</small>
-            </span>
-          </button>
 
           <button type="button" className="resumen-action-btn" onClick={() => navigate('/equipos')}>
             <span className="resumen-action-icon" aria-hidden="true">#</span>
@@ -613,156 +519,6 @@ export default function Resumen() {
         </div>
       </section>
 
-      {showDeleteModal && (
-        <div className={`resumen-delete-overlay ${isClosingDeleteModal ? 'is-closing' : ''}`} onClick={closeDeleteModal}>
-          <div className={`resumen-delete-card ${isClosingDeleteModal ? 'is-closing' : ''}`} onClick={(event) => event.stopPropagation()}>
-            <div className="resumen-delete-head">
-              <div>
-                <h3>Eliminar equipo</h3>
-                <p>Filtra y selecciona el equipo que deseas eliminar del inventario.</p>
-              </div>
-              <button type="button" className="btn-ghost resumen-delete-close-btn" onClick={closeDeleteModal}>
-                Cerrar
-              </button>
-            </div>
-
-            <div className="resumen-delete-filters">
-              <label className="resumen-delete-filter-item">
-                <span>ID</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="Ej: 12"
-                  value={deleteFilters.id}
-                  onChange={event => setDeleteFilters(current => ({ ...current, id: event.target.value.replace(/\D/g, '') }))}
-                />
-              </label>
-
-              <label className="resumen-delete-filter-item">
-                <span>Nombre</span>
-                <input
-                  type="text"
-                  placeholder="Buscar por nombre"
-                  value={deleteFilters.nombre}
-                  onChange={event => setDeleteFilters(current => ({ ...current, nombre: event.target.value }))}
-                />
-              </label>
-
-              <label className="resumen-delete-filter-item">
-                <span>Categoria</span>
-                <select
-                  value={deleteFilters.sector}
-                  onChange={event => setDeleteFilters(current => ({ ...current, sector: event.target.value }))}
-                >
-                  <option value="">Todas</option>
-                  <option value="Electrica">Electrica</option>
-                  <option value="Neumatica">Neumatica</option>
-                  <option value="Electronica">Electronica</option>
-                </select>
-              </label>
-
-              <label className="resumen-delete-filter-item">
-                <span>Estado</span>
-                <select
-                  value={deleteFilters.estado}
-                  onChange={event => setDeleteFilters(current => ({ ...current, estado: event.target.value }))}
-                >
-                  <option value="">Todos</option>
-                  <option value="Activo">Activo</option>
-                  <option value="Inactivo">Inactivo</option>
-                  <option value="EnMantenimiento">En mantenimiento</option>
-                </select>
-              </label>
-            </div>
-
-            {deleteError && <div className="error-box">{deleteError}</div>}
-
-            <div className="resumen-delete-table-wrap">
-              <table className="resumen-delete-table">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Nombre</th>
-                    <th>Categoria</th>
-                    <th>Estado</th>
-                    <th>Accion</th>
-                  </tr>
-                </thead>
-                <tbody key={deleteTableMotionKey}>
-                  {equiposToDelete.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="resumen-delete-empty">No hay equipos que coincidan con los filtros.</td>
-                    </tr>
-                  ) : (
-                    equiposToDelete.map((item, index) => (
-                      <tr key={item.id} className="resumen-delete-row" style={{ animationDelay: `${index * 0.06}s` }}>
-                        <td>{item.id}</td>
-                        <td>{item.nombre}</td>
-                        <td>{item.sector}</td>
-                        <td>{item.estado === 'EnMantenimiento' ? 'En mantenimiento' : item.estado}</td>
-                        <td>
-                          <button
-                            type="button"
-                            className="btn-danger equipos-delete-btn action-btn resumen-delete-btn"
-                            disabled={deletingId === item.id || rol !== 'ADMIN'}
-                            onClick={() => askDeleteEquipo(item.id, item.nombre)}
-                          >
-                            {deletingId === item.id ? 'Eliminando...' : 'Eliminar'}
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="resumen-delete-pagination">
-              <button
-                type="button"
-                className="btn-ghost"
-                disabled={deletePage <= 1}
-                onClick={() => setDeletePage(current => Math.max(1, current - 1))}
-              >
-                ← Anterior
-              </button>
-              <span className="resumen-delete-page-badge">Pagina {deletePage}</span>
-              <button
-                type="button"
-                className="btn-ghost"
-                disabled={deletePage >= deleteTotalPages || filteredEquiposToDelete.length === 0}
-                onClick={() => setDeletePage(current => Math.min(deleteTotalPages, current + 1))}
-              >
-                Siguiente →
-              </button>
-            </div>
-
-            {rol !== 'ADMIN' && <p className="resumen-delete-note">Solo un administrador puede eliminar equipos.</p>}
-          </div>
-        </div>
-      )}
-
-      {pendingDelete && (
-        <div className="resumen-confirm-overlay" onClick={() => setPendingDelete(null)}>
-          <div className="resumen-confirm-card" onClick={(event) => event.stopPropagation()}>
-            <h4>Seguro que quiere eliminar el equipo?</h4>
-            <p>Esta opcion no se puede deshacer.</p>
-            <div className="resumen-confirm-actions">
-              <button type="button" className="btn-ghost" onClick={() => setPendingDelete(null)}>
-                Cancelar
-              </button>
-              <button
-                type="button"
-                className="btn-danger equipos-delete-btn action-btn resumen-delete-btn"
-                disabled={deletingId === pendingDelete.id}
-                onClick={confirmDeleteEquipo}
-              >
-                {deletingId === pendingDelete.id ? 'Eliminando...' : `Eliminar ${pendingDelete.nombre}`}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

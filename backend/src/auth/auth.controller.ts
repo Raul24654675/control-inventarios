@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Get, Query, BadRequestException, Patch, Param, Delete, Req } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Get, Query, BadRequestException, Patch, Param } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { RolesGuard } from './roles.guard';
@@ -17,6 +17,11 @@ export class AuthController {
     return this.authService.registerUserByAdmin(data);
   }
 
+  @Post('login')
+  login(@Body() data: any) {
+    return this.authService.login(data.email, data.password);
+  }
+
   @Post('login/admin')
   loginAdmin(@Body() data: any) {
     return this.authService.loginAdmin(data.email, data.password);
@@ -30,17 +35,21 @@ export class AuthController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
   @Get('users')
-  listUsers(@Query('id') id?: string, @Query('nombre') nombre?: string, @Query('email') email?: string) {
+  listUsers(@Query('id') id?: string, @Query('nombre') nombre?: string, @Query('email') email?: string, @Query('activo') activo?: string) {
     if (id !== undefined && id !== '') {
       if (!/^\d+$/.test(id)) {
         throw new BadRequestException('El id solo puede contener numeros');
       }
     }
 
+    const activoLower = activo?.toLowerCase()
+    const activeFilter = activoLower === 'activo' ? true : activoLower === 'inactivo' ? false : undefined
+
     return this.authService.listUsers({
       id,
       nombre,
       email,
+      activo: activeFilter,
     });
   }
 
@@ -58,14 +67,17 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
-  @Delete('users/:id')
-  deleteOperador(@Param('id') id: string, @Req() req: any) {
+  @Patch('users/:id/activo')
+  updateOperadorActivo(@Param('id') id: string, @Body() data: { activo: boolean }) {
     const parsedId = Number(id);
     if (!Number.isInteger(parsedId) || parsedId <= 0) {
       throw new BadRequestException('El id debe ser un numero entero mayor o igual a 1');
     }
 
-    const actorId = Number(req?.user?.sub);
-    return this.authService.deleteOperador(parsedId, actorId);
+    if (typeof data?.activo !== 'boolean') {
+      throw new BadRequestException('El estado activo debe ser booleano');
+    }
+
+    return this.authService.updateOperadorActivo(parsedId, data.activo);
   }
 }

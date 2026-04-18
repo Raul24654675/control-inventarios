@@ -13,6 +13,7 @@ export const ERROR_MESSAGES = {
     LOGIN_REQUIRED_FIELDS: 'Email y clave son obligatorios',
     PASSWORD_REQUIRED: 'La nueva clave es obligatoria',
     PASSWORD_TARGET_MUST_BE_OPERADOR: 'Solo se puede cambiar la clave de usuarios con rol OPERADOR',
+    USER_INACTIVE: 'usuario inactivo, comuniquese con administracion',
   },
   EQUIPO: {
     NOT_FOUND: 'Equipo no encontrado',
@@ -25,5 +26,6 @@ export const ERROR_MESSAGES = {
   },
   HISTORIAL: {
     INVALID_EQUIPO_ID: 'equipoId invalido',
+    INVALID_DATE_RANGE: 'Debe seleccionar fecha desde y fecha hasta, y la fecha desde no puede ser posterior a la fecha hasta.',
   },
 } as const;

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useAuth } from '../useAuth'
 import api from '../api'
 import { readStoredProfile, type StoredUserProfile } from '../profile-storage'
 import './Usuarios.css'
@@ -8,15 +9,19 @@ type UsuarioListado = {
   nombre: string
   email: string
   rol: string
+  activo: boolean
   creadoEn: string
 }
 
 export default function Usuarios() {
-  const EMPTY_FILTERS = { id: '', nombre: '', email: '' }
+  const EMPTY_FILTERS = { id: '', nombre: '', email: '', activo: '' }
+  const { rol } = useAuth()
+  const isAdmin = rol === 'ADMIN'
   const [usuarios, setUsuarios] = useState<UsuarioListado[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [filters, setFilters] = useState(EMPTY_FILTERS)
+  const [draftFilters, setDraftFilters] = useState(EMPTY_FILTERS)
   const [isClearingFilters, setIsClearingFilters] = useState(false)
   const [tableMotionKey, setTableMotionKey] = useState(0)
   const [showPasswordModal, setShowPasswordModal] = useState(false)
@@ -26,6 +31,16 @@ export default function Usuarios() {
   const [newPassword, setNewPassword] = useState('')
   const [passwordLoading, setPasswordLoading] = useState(false)
   const [passwordError, setPasswordError] = useState('')
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [isClosingCreateModal, setIsClosingCreateModal] = useState(false)
+  const [newUserName, setNewUserName] = useState('')
+  const [newUserEmail, setNewUserEmail] = useState('')
+  const [newUserPassword, setNewUserPassword] = useState('')
+  const [newUserRole, setNewUserRole] = useState<'ADMIN' | 'OPERADOR'>('OPERADOR')
+  const [createError, setCreateError] = useState('')
+  const [createLoading, setCreateLoading] = useState(false)
+  const [confirmingActiveToggleUser, setConfirmingActiveToggleUser] = useState<UsuarioListado | null>(null)
+  const [confirmActiveState, setConfirmActiveState] = useState<boolean | null>(null)
 
   const profileInitials = (selectedUserProfile?.displayName || selectedUserProfile?.fullName || selectedUser?.nombre || 'OP')
     .split(' ')
@@ -43,6 +58,7 @@ export default function Usuarios() {
       if (currentFilters.nombre) params.set('nombre', currentFilters.nombre)
       if (currentFilters.email) params.set('email', currentFilters.email)
 
+      if (currentFilters.activo) params.set('activo', currentFilters.activo)
       const query = params.toString()
       const { data } = await api.get<UsuarioListado[]>(`/auth/users${query ? `?${query}` : ''}`)
       setUsuarios(data)
@@ -56,10 +72,15 @@ export default function Usuarios() {
 
   useEffect(() => {
     loadUsers(filters)
-  }, [filters.id, filters.nombre, filters.email])
+  }, [filters.id, filters.nombre, filters.email, filters.activo])
+
+  function applyFilters() {
+    setFilters(draftFilters)
+  }
 
   function clearFilters() {
     setFilters(EMPTY_FILTERS)
+    setDraftFilters(EMPTY_FILTERS)
     setIsClearingFilters(true)
     setTimeout(() => setIsClearingFilters(false), 430)
   }
@@ -97,14 +118,74 @@ export default function Usuarios() {
     }
   }
 
-  async function handleDeleteUser(user: UsuarioListado) {
-    if (!confirm(`¿Eliminar al usuario ${user.nombre}? Esta acción no se puede deshacer.`)) return
+  function openCreateModal() {
+    setCreateError('')
+    setNewUserName('')
+    setNewUserEmail('')
+    setNewUserPassword('')
+    setNewUserRole('OPERADOR')
+    setIsClosingCreateModal(false)
+    setShowCreateModal(true)
+  }
+
+  function closeCreateModal() {
+    if (isClosingCreateModal) return
+    setIsClosingCreateModal(true)
+    setTimeout(() => {
+      setShowCreateModal(false)
+      setIsClosingCreateModal(false)
+    }, 280)
+  }
+
+  async function handleCreateUser() {
+    setCreateError('')
+    if (!newUserName.trim() || !newUserEmail.trim() || !newUserPassword.trim()) {
+      setCreateError('Todos los campos son obligatorios.')
+      return
+    }
+
+    setCreateLoading(true)
     try {
-      await api.delete(`/auth/users/${user.id}`)
+      await api.post('/auth/register', {
+        nombre: newUserName.trim(),
+        email: newUserEmail.trim(),
+        password: newUserPassword.trim(),
+        rol: newUserRole,
+      })
+      setShowCreateModal(false)
+      setNewUserName('')
+      setNewUserEmail('')
+      setNewUserPassword('')
+      setNewUserRole('OPERADOR')
       loadUsers(filters)
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      setError(msg ?? 'No se pudo eliminar el usuario.')
+      setCreateError(msg ?? 'No se pudo crear el usuario.')
+    } finally {
+      setCreateLoading(false)
+    }
+  }
+
+  function requestToggleActive(user: UsuarioListado) {
+    setConfirmingActiveToggleUser(user)
+    setConfirmActiveState(!user.activo)
+  }
+
+  function closeToggleActiveConfirm() {
+    setConfirmingActiveToggleUser(null)
+    setConfirmActiveState(null)
+  }
+
+  async function handleToggleActive() {
+    if (!confirmingActiveToggleUser || confirmActiveState === null) return
+
+    try {
+      await api.patch(`/auth/users/${confirmingActiveToggleUser.id}/activo`, { activo: confirmActiveState })
+      closeToggleActiveConfirm()
+      loadUsers(filters)
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      setError(msg ?? 'No se pudo actualizar el estado del usuario.')
     }
   }
 
@@ -112,6 +193,11 @@ export default function Usuarios() {
     <div style={styles.page}>
       <div style={styles.toolbar}>
         <h2 style={{ margin: 0 }}>Usuarios</h2>
+        {isAdmin && (
+          <button type="button" className="btn-primary" onClick={openCreateModal}>
+            Registrar usuario
+          </button>
+        )}
       </div>
 
       <section className={`filters-card ${isClearingFilters ? 'is-clearing' : ''}`} aria-label="Filtros de usuarios">
@@ -126,10 +212,10 @@ export default function Usuarios() {
               type="text"
               inputMode="numeric"
               placeholder="ID"
-              value={filters.id}
+              value={draftFilters.id}
               onChange={(e) => {
                 const onlyDigits = e.target.value.replace(/\D/g, '')
-                setFilters((f) => ({ ...f, id: onlyDigits }))
+                setDraftFilters((f) => ({ ...f, id: onlyDigits }))
               }}
               className="filter-control"
             />
@@ -141,8 +227,8 @@ export default function Usuarios() {
               id="user-filter-nombre"
               type="text"
               placeholder="Nombre"
-              value={filters.nombre}
-              onChange={(e) => setFilters((f) => ({ ...f, nombre: e.target.value }))}
+              value={draftFilters.nombre}
+              onChange={(e) => setDraftFilters((f) => ({ ...f, nombre: e.target.value }))}
               className="filter-control"
             />
           </label>
@@ -153,15 +239,30 @@ export default function Usuarios() {
               id="user-filter-email"
               type="text"
               placeholder="Correo"
-              value={filters.email}
-              onChange={(e) => setFilters((f) => ({ ...f, email: e.target.value }))}
+              value={draftFilters.email}
+              onChange={(e) => setDraftFilters((f) => ({ ...f, email: e.target.value }))}
               className="filter-control"
             />
+          </label>
+
+          <label className="filter-item" htmlFor="user-filter-activo">
+            <span className="filter-label">ESTADO</span>
+            <select
+              id="user-filter-activo"
+              value={draftFilters.activo}
+              onChange={(e) => setDraftFilters((f) => ({ ...f, activo: e.target.value }))}
+              className="filter-control"
+            >
+              <option value="">Todos</option>
+              <option value="Activo">Activo</option>
+              <option value="Inactivo">Inactivo</option>
+            </select>
           </label>
         </div>
 
         <div className="filters-divider" aria-hidden="true" />
         <div className="filters-actions">
+          <button type="button" className="btn-primary" onClick={applyFilters}>Filtrar</button>
           <button type="button" className="btn-ghost" onClick={clearFilters}>Limpiar</button>
         </div>
       </section>
@@ -178,11 +279,12 @@ export default function Usuarios() {
             <thead>
               <tr>
                 <th>ID</th>
-                <th>nombre</th>
-                <th>email</th>
-                <th>rol</th>
-                <th>creadoEn</th>
-                <th>acciones</th>
+                <th>Nombre</th>
+                <th>Correo</th>
+                <th>Rol</th>
+                <th>Estado</th>
+                <th>Fecha de creación</th>
+                <th>Opciones</th>
               </tr>
             </thead>
             <tbody>
@@ -194,6 +296,11 @@ export default function Usuarios() {
                   <td>
                     <span className={`role-chip ${u.rol === 'ADMIN' ? 'role-admin' : 'role-operador'}`}>
                       {u.rol === 'ADMIN' ? 'Administrador' : 'Operador'}
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`role-chip ${u.activo ? 'role-active' : 'role-inactive'}`}>
+                      {u.activo ? 'Activo' : 'Inactivo'}
                     </span>
                   </td>
                   <td style={{ color: 'var(--muted)', fontSize: '.85rem' }}>
@@ -208,8 +315,12 @@ export default function Usuarios() {
                         <button className="btn-ghost usuarios-edit-btn action-btn" onClick={() => openPasswordModal(u)} style={{ padding: '5px 12px', fontSize: '0.82rem' }}>
                           Editar contraseña
                         </button>
-                        <button className="btn-danger usuarios-delete-btn action-btn" onClick={() => handleDeleteUser(u)} style={{ padding: '5px 12px', fontSize: '0.82rem' }}>
-                          Eliminar
+                        <button
+                          className="btn-outline usuarios-toggle-active-btn action-btn"
+                          onClick={() => requestToggleActive(u)}
+                          style={{ padding: '5px 12px', fontSize: '0.82rem' }}
+                        >
+                          {u.activo ? 'Inactivar' : 'Reactivar'}
                         </button>
                       </div>
                     ) : (
@@ -222,6 +333,69 @@ export default function Usuarios() {
           </table>
         )}
       </div>
+
+      {showCreateModal && (
+        <div className={`edit-modal-overlay ${isClosingCreateModal ? 'is-closing' : ''}`} onClick={closeCreateModal}>
+          <div className={`edit-modal-card ${isClosingCreateModal ? 'is-closing' : ''}`} onClick={(e) => e.stopPropagation()}>
+            <h3 className="edit-modal-title">Registrar nuevo usuario</h3>
+            <form className="edit-modal-form" onSubmit={(e) => { e.preventDefault(); handleCreateUser() }}>
+              <label className="edit-modal-field" style={{ animationDelay: '40ms' }}>
+                Nombre
+                <input
+                  className="modal-control"
+                  type="text"
+                  value={newUserName}
+                  onChange={(e) => setNewUserName(e.target.value)}
+                  placeholder="Nombre"
+                />
+              </label>
+              <label className="edit-modal-field" style={{ animationDelay: '90ms' }}>
+                Correo
+                <input
+                  className="modal-control"
+                  type="email"
+                  value={newUserEmail}
+                  onChange={(e) => setNewUserEmail(e.target.value)}
+                  placeholder="Correo"
+                />
+              </label>
+              <label className="edit-modal-field" style={{ animationDelay: '140ms' }}>
+                Clave
+                <input
+                  className="modal-control"
+                  type="password"
+                  value={newUserPassword}
+                  onChange={(e) => setNewUserPassword(e.target.value)}
+                  placeholder="Contraseña"
+                />
+              </label>
+              <label className="edit-modal-field" style={{ animationDelay: '190ms' }}>
+                Rol
+                <span className="edit-modal-select-wrap">
+                  <select
+                    className="modal-control"
+                    value={newUserRole}
+                    onChange={(e) => setNewUserRole(e.target.value as 'ADMIN' | 'OPERADOR')}
+                  >
+                    <option value="OPERADOR">Operador</option>
+                    <option value="ADMIN">Administrador</option>
+                  </select>
+                  <span className="edit-modal-chevron" aria-hidden="true" />
+                </span>
+              </label>
+              {createError && <div className="error-box" style={{ marginTop: '0' }}>{createError}</div>}
+              <div className="edit-modal-actions">
+                <button type="submit" className="btn-primary edit-modal-save" disabled={createLoading}>
+                  {createLoading ? 'Creando...' : 'Crear usuario'}
+                </button>
+                <button type="button" className="btn-ghost edit-modal-cancel" onClick={closeCreateModal}>
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {showPasswordModal && selectedUser && (
         <div style={styles.overlay} onClick={() => setShowPasswordModal(false)}>
@@ -303,6 +477,27 @@ export default function Usuarios() {
                 <span className="user-profile-label">Rol</span>
                 <strong>{selectedUserProfile.roleLabel}</strong>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmingActiveToggleUser && confirmActiveState !== null && (
+        <div style={styles.overlay} onClick={closeToggleActiveConfirm}>
+          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ marginTop: 0, marginBottom: '12px' }}>Confirmar acción</h3>
+            <p style={{ margin: 0, color: 'var(--muted)', fontSize: '.95rem' }}>
+              {confirmActiveState
+                ? `¿Deseas reactivar al usuario ${confirmingActiveToggleUser.nombre}?`
+                : `¿Deseas marcar como inactivo al usuario ${confirmingActiveToggleUser.nombre}?`}
+            </p>
+            <div style={styles.modalActions}>
+              <button className="btn-primary" onClick={handleToggleActive}>
+                {confirmActiveState ? 'Reactivar' : 'Inactivar'}
+              </button>
+              <button className="btn-ghost" onClick={closeToggleActiveConfirm}>
+                Cancelar
+              </button>
             </div>
           </div>
         </div>

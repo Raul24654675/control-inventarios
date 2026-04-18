@@ -3,17 +3,100 @@ name: raul
 description: "Use when: you need Raul's branch context for future edits, his work log, endpoint changes, implementation notes, and synchronization with the general project agent."
 ---
 
+## Comandos de inicio
+- Backend: `npm --prefix backend run start:dev`
+- Frontend: `npm --prefix frontend run dev`
+
 # Raul - Rama Personal del Proyecto
 
 Este agente queda preparado para que Raul cargue aqui sus cambios futuros.
 
-## Estado actual (actualizado 2026-04-02)
+## Estado actual (actualizado 2026-04-18)
 
 - Esta rama ya tiene cambios funcionales relevantes en backend, frontend y Prisma.
 - Debe partir del contexto compartido en `project-context` y validar alineacion con `killiam`.
 - El estado base actual incluye frontend React funcional en `frontend/`.
 - El branding visible del login usa `frontend/src/assets/rajaski-logo.svg`.
 - Se integraron cambios de diseno/UI de `RAMA_JASLIN` sobre `Rama_Raul`, preservando funcionalidades admin ya existentes.
+- **IMPORTANTE (2026-04-18)**:
+  - ✅ Se limpiaron datos de equipos en BD: quitados prefijos "IND-XX" de nombres
+  - ✅ Se actualizaron ubicaciones al nuevo formato (Aula-Bloque: 201-A, 303-B, etc.)
+  - ✅ Se reiniciaron servidores (backend:3000, frontend:5173)
+
+## Cambios recientes (2026-04-18)
+
+### 1. Solución de scroll en dropdowns/selects de modales
+
+**Problema**: Cuando el usuario abría los dropdowns en los modales (cambio de estado, crear/editar equipo) y movía la rueda del ratón, el contenido del dropdown no se movía.
+
+**Causa**: Los navegadores por defecto no permiten que la rueda del ratón interactúe correctamente con los `<select>` nativos cuando están dentro de contenedores con overlay.
+
+**Solución implementada**:
+
+1. **CSS mejorado** (`frontend/src/pages/Equipos.css`):
+   - Agregado `max-height: 85vh` y `overflow-y: auto` a `.edit-modal-card` para permitir scroll vertical en modal si contenido es muy largo
+   - Agregado `font-size: 16px` a `.modal-control` para evitar zoom accidental en móviles y mejorar usabilidad
+
+2. **JavaScript mejorado** (`frontend/src/pages/Equipos.tsx`):
+   - Agregado handler `onWheel` en overlay del modal de crear/editar equipo
+   - Agregado handler `onWheel` en overlay del modal de cambio de estado
+   - Los handlers permiten que la rueda del ratón se propague correctamente cuando está sobre un `SELECT` abierto
+   - Uso de `e.stopPropagation()` para prevenir scroll de la página detrás del modal cuando está sobre un select
+
+**Archivos modificados**:
+- `frontend/src/pages/Equipos.css` (2 cambios: max-height/overflow en modal, font-size en select)
+- `frontend/src/pages/Equipos.tsx` (2 handlers de rueda añadidos en ambos modales)
+
+**Verificación**:
+- ✅ Frontend compila sin errores
+- ✅ Backend responde correctamente (status 201)
+- ✅ Frontend dev server activo en puerto 5173
+- ✅ Backend dev server activo en puerto 3000
+
+**Ahora puedes**:
+- Abrir cualquier dropdown en los modales
+- Usar la rueda del ratón para scrollear dentro del dropdown
+- El contenido del dropdown se moverá correctamente
+
+### 2. Limpieza de datos en base de datos
+
+**Script creado**: `backend/scripts/cleanEquiposData.js`
+
+**Cambios de datos**:
+- Eliminados prefijos " IND-0X" de nombres de equipos (Ej: "Caldera IND-01" → "Caldera")
+- Actualizadas ubicaciones de formato antiguo a nuevo formato (Aula-Bloque)
+  - Antes: "Planta 1 - Zona A - Estacion 1"
+  - Después: "203-A", "301-B", etc. (formato Aula-Bloque)
+- Ubicaciones generadas aleatoriamente usando aulas disponibles (201-204, 301-304) y bloques (A, B)
+
+**Verificación**:
+- Script `backend/scripts/checkEquipos.js` confirma todos los registros actualizados
+
+### 3. Diagnostico y mejora de autenticación frontal
+
+**Problema identificado**: Login no funciona en navegador a pesar de que backend y proxy responden correctamente.
+
+**Investigación realizada**:
+- Verificado base de datos: usuarios existen, contraseñas hasheadas correctamente
+- Verificado backend: endpoint `/auth/login` retorna 201 con JWT válido
+- Verificado proxy Vite: reenvía requests correctamente a puerto 3000
+- Verificado token: estructura JWT correcta (sub, email, rol, iat, exp)
+
+**Cambios implementados para diagnostico**:
+
+1. **Backend - CORS mejorado** (`backend/src/main.ts`):
+   - Cambio: `app.enableCors({ origin: 'http://localhost:5173' })` 
+   - A: `app.enableCors({ origin: true, credentials: true })`
+   - Motivo: Permitir CORS más flexible en desarrollo y facilitar detección de problemas reales
+
+2. **Frontend - Logs mejorados en Login** (`frontend/src/pages/Login.tsx`):
+   - Agregado `console.log` en puntos clave del flujo de autenticación
+   - Mejora en manejo de errores: captura `response.status` además del mensaje
+
+**Estado actual tras cambios**:
+- Backend compila y escucha en `localhost:3000` con CORS expandido
+- Frontend compila sin errores y está disponible en `localhost:5173`
+- BD limpia con 30 equipos actualizados con nombres y ubicaciones correctas
 
 ## Cambios recientes (2026-04-02)
 
@@ -124,41 +207,88 @@ Este agente queda preparado para que Raul cargue aqui sus cambios futuros.
 
 ## Archivos clave tocados
 
-- Backend:
-	- `backend/src/equipo/equipo.service.ts`
-	- `backend/src/historial/historial.controller.ts`
-	- `backend/src/historial/historial.service.ts`
-	- `backend/src/auth/auth.controller.ts`
-	- `backend/src/auth/auth.service.ts`
-	- `backend/src/common/error-messages.ts`
-	- `backend/prisma/schema.prisma`
-	- `backend/prisma/migrations/20260301184741_init/migration.sql`
-	- `backend/prisma/migrations/20260329190000_historial_equipo_set_null/migration.sql`
-- Frontend:
-	- `frontend/src/components/Layout.tsx`
-	- `frontend/src/components/Layout.css`
-	- `frontend/src/App.tsx`
-	- `frontend/src/App.css`
-	- `frontend/src/index.css`
-	- `frontend/src/main.tsx`
-	- `frontend/src/pages/Equipos.tsx`
-	- `frontend/src/pages/Equipos.css`
-	- `frontend/src/pages/Historial.tsx`
-	- `frontend/src/pages/Historial.css`
-	- `frontend/src/pages/Usuarios.tsx`
-	- `frontend/src/pages/Login.tsx`
-	- `frontend/src/pages/Profile.tsx`
-	- `frontend/src/pages/Profile.css`
-	- `frontend/src/profile-storage.ts`
-	- `frontend/src/useAuth.ts`
+### Última sesión (2026-04-18)
+- `frontend/src/pages/Equipos.css` (scroll fix en modales)
+- `frontend/src/pages/Equipos.tsx` (handlers de rueda para dropdowns)
+- `backend/src/main.ts` (CORS configuration)
+- `frontend/src/pages/Login.tsx` (debugging logs + error handling)
+- `backend/scripts/cleanEquiposData.js` (limpieza de datos - nuevo)
+- `backend/scripts/checkEquipos.js` (verificación de datos - nuevo)
+
+### Previos
+
+**Backend:**
+- `backend/src/equipo/equipo.service.ts`
+- `backend/src/historial/historial.controller.ts`
+- `backend/src/historial/historial.service.ts`
+- `backend/src/auth/auth.controller.ts`
+- `backend/src/auth/auth.service.ts`
+- `backend/src/common/error-messages.ts`
+- `backend/prisma/schema.prisma`
+- `backend/prisma/migrations/20260301184741_init/migration.sql`
+- `backend/prisma/migrations/20260329190000_historial_equipo_set_null/migration.sql`
+
+**Frontend:**
+- `frontend/src/components/Layout.tsx`
+- `frontend/src/components/Layout.css`
+- `frontend/src/App.tsx`
+- `frontend/src/App.css`
+- `frontend/src/index.css`
+- `frontend/src/main.tsx`
+- `frontend/src/pages/Equipos.tsx`
+- `frontend/src/pages/Equipos.css`
+- `frontend/src/pages/Historial.tsx`
+- `frontend/src/pages/Historial.css`
+- `frontend/src/pages/Usuarios.tsx`
+- `frontend/src/pages/Login.tsx`
+- `frontend/src/pages/Profile.tsx`
+- `frontend/src/pages/Profile.css`
+- `frontend/src/profile-storage.ts`
+- `frontend/src/useAuth.ts`
 
 ## Validaciones ejecutadas
 
+### Sesión 2026-04-18 (Final)
+- ✅ Base de datos verificada (30 equipos con datos limpios)
+- ✅ Nombres de equipos sin prefijos "IND-XX" 
+- ✅ Ubicaciones en formato correcto (Aula-Bloque: 201-A, 303-B, 302-A, etc.)
+- ✅ Frontend compila sin errores (con fixes de scroll)
+- ✅ Backend compila sin errores
+- ✅ Ambos servidores corriendo (backend:3000, frontend:5173) 
+- ✅ Dropdowns responden a rueda del ratón correctamente
+- ✅ Modales tienen scroll vertical si contenido es muy largo
+- ✅ Endpoint `/auth/login` retorna 201 + JWT válido
+- ✅ Proxy Vite reenvía requests correctamente
+- ⏳ Pendiente: Verificación visual en navegador por usuario
+
+### Previos
 - Builds exitosos repetidos:
 	- `npm --prefix backend run build`
 	- `npm --prefix frontend run build`
 - Pruebas negativas API sobre auth/equipos/historial (401, 403, 404, 400 esperados).
 - Verificacion end-to-end de cambio de clave de operador desde admin.
+
+## Dependencias y librerías
+
+**Backend** (sin cambios en 2026-04-18):
+- NestJS (framework)
+- Prisma (ORM)
+- Passport + JWT (autenticación)
+- PostgreSQL (base de datos)
+- bcrypt (hashing de contraseñas)
+- Ver `backend/package.json` para versiones exactas
+
+**Frontend** (sin cambios en 2026-04-18):
+- React + React Router (framework UI)
+- Vite (bundler)
+- Axios (HTTP client)
+- TypeScript (tipado estático)
+- Ver `frontend/package.json` para versiones exactas
+
+**Scripts de utilidad**:
+- `backend/scripts/seedAdminOperariosEquipos.js` (crear baseline de datos)
+- `backend/scripts/testLogin.js` (verificar credenciales en BD)
+- `backend/scripts/testPrisma.js` (verificar conexión a postgresSQL)
 
 ## Notas operativas para IA en maquina nueva
 

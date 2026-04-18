@@ -122,6 +122,7 @@
   background: var(--surface-soft);
   color: var(--text-main);
   padding: 0 12px;
+  font-size: 16px;
 }
 
 .modal-control:focus {
@@ -849,6 +850,8 @@
   justify-content: center;
   z-index: 260;
   animation: edit-modal-overlay-in 0.36s ease-out both;
+  touch-action: auto;
+  overflow: hidden;
 }
 
 .edit-modal-overlay.is-closing {
@@ -863,10 +866,35 @@
   border: 1px solid var(--border-main);
   box-shadow: 0 24px 70px rgba(20, 30, 32, 0.22);
   animation: edit-modal-in 0.4s cubic-bezier(0.25, 0.1, 0.25, 1) both;
+  max-height: 90vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+  touch-action: manipulation;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-main) transparent;
 }
 
-.edit-modal-card.is-closing {
-  animation: edit-modal-out 0.28s ease-in-out both;
+.edit-modal-card::-webkit-scrollbar {
+  width: 8px;
+}
+
+.edit-modal-card::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 4px;
+}
+
+.edit-modal-card::-webkit-scrollbar-thumb {
+  background: var(--border-main);
+  border-radius: 4px;
+  border: 1px solid transparent;
+  background-clip: content-box;
+}
+
+.edit-modal-card::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+  background-clip: content-box;
 }
 
 .edit-modal-title {
@@ -877,6 +905,7 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
+  width: 100%;
 }
 
 .edit-modal-grid {

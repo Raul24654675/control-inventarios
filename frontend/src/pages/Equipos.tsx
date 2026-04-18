@@ -114,27 +114,55 @@ const EMPTY_FORM: EquipoForm = { nombre: '', sector: 'Electrica', estado: 'Activ
 export default function Equipos() {
   const { rol } = useAuth()
   const isAdmin = rol === 'ADMIN'
+  const canEdit = rol === 'ADMIN' || rol === 'OPERADOR'
   const [searchParams, setSearchParams] = useSearchParams()
 
   const [equipos, setEquipos] = useState<Equipo[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
+  const [draftFilters, setDraftFilters] = useState<Filters>(EMPTY_FILTERS)
   const [tableMotionKey, setTableMotionKey] = useState(0)
   const [isClearingFilters, setIsClearingFilters] = useState(false)
 
   const [showForm, setShowForm] = useState(false)
   const [isClosingForm, setIsClosingForm] = useState(false)
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [isClosingDeleteConfirm, setIsClosingDeleteConfirm] = useState(false)
-  const [pendingDeleteEquipo, setPendingDeleteEquipo] = useState<Pick<Equipo, 'id' | 'nombre'> | null>(null)
-  const [deleteLoading, setDeleteLoading] = useState(false)
   const [editing, setEditing] = useState<Equipo | null>(null)
   const [form, setForm] = useState<EquipoForm>(EMPTY_FORM)
   const [formError, setFormError] = useState('')
   const [formLoading, setFormLoading] = useState(false)
 
-  const { aula: filtroAula, bloque: filtroBloque } = splitUbicacion(filters.ubicacion)
+  // Estado para el modal de cambio de estado
+  const [showEstadoModal, setShowEstadoModal] = useState(false)
+  const [isClosingEstadoModal, setIsClosingEstadoModal] = useState(false)
+  const [equipoSeleccionado, setEquipoSeleccionado] = useState<Equipo | null>(null)
+  const [estadoForm, setEstadoForm] = useState({
+    estado: 'Inactivo' as Estado,
+    // Campos para Inactivo
+    motivo: '',
+    descripcion: '',
+    tiempoEstimado: 'Indefinido' as const,
+    accionRequerida: 'Reparacion' as const,
+    prioridad: 'Media' as const,
+    evidenciaUrl: '',
+    // Campos para EnMantenimiento
+    tipoMantenimiento: 'Preventivo' as const,
+    motivoMantenimiento: 'ProgramacionPeriodica' as const,
+    fechaInicio: '',
+    horaInicio: '',
+    descripcionTecnica: '',
+    tiempoEstimadoMantenimiento: 'Horas' as 'Horas' | 'Dias' | 'FechaEstimada',
+    fechaFinEstimada: '',
+    prioridadMantenimiento: 'Media' as const,
+    costoManoObra: '',
+    costoRepuestos: '',
+    costoTotal: '',
+    evidenciaMantenimiento: '',
+  })
+  const [estadoError, setEstadoError] = useState('')
+  const [estadoLoading, setEstadoLoading] = useState(false)
+
+  const { aula: draftAula, bloque: draftBloque } = splitUbicacion(draftFilters.ubicacion)
   const { aula: formAula, bloque: formBloque } = splitUbicacion(form.ubicacion)
 
   async function load(f: Filters) {
@@ -178,8 +206,13 @@ export default function Equipos() {
     setSearchParams(next, { replace: true })
   }, [isAdmin, searchParams, setSearchParams])
 
+  function applyFilters() {
+    setFilters(current => ({ ...draftFilters, page: 1, limit: current.limit }))
+  }
+
   function clearFilters() {
     setFilters(EMPTY_FILTERS)
+    setDraftFilters(EMPTY_FILTERS)
     setIsClearingFilters(true)
     setTimeout(() => setIsClearingFilters(false), 430)
   }
@@ -214,36 +247,41 @@ export default function Equipos() {
     }, 300)
   }
 
-  function openDeleteConfirm(eq: Pick<Equipo, 'id' | 'nombre'>) {
-    setPendingDeleteEquipo(eq)
-    setIsClosingDeleteConfirm(false)
-    setShowDeleteConfirm(true)
+  function openEstadoModal(eq: Equipo) {
+    setEquipoSeleccionado(eq)
+    setEstadoForm({
+      estado: 'Inactivo',
+      motivo: '',
+      descripcion: '',
+      tiempoEstimado: 'Indefinido',
+      accionRequerida: 'Reparacion',
+      prioridad: 'Media',
+      evidenciaUrl: '',
+      tipoMantenimiento: 'Preventivo',
+      motivoMantenimiento: 'ProgramacionPeriodica',
+      fechaInicio: '',
+      horaInicio: '',
+      descripcionTecnica: '',
+      tiempoEstimadoMantenimiento: 'Horas',
+      fechaFinEstimada: '',
+      prioridadMantenimiento: 'Media',
+      costoManoObra: '',
+      costoRepuestos: '',
+      costoTotal: '',
+      evidenciaMantenimiento: '',
+    })
+    setEstadoError('')
+    setIsClosingEstadoModal(false)
+    setShowEstadoModal(true)
   }
 
-  function closeDeleteConfirm() {
-    if (isClosingDeleteConfirm) return
-    setIsClosingDeleteConfirm(true)
+  function closeEstadoModal() {
+    setIsClosingEstadoModal(true)
     setTimeout(() => {
-      setShowDeleteConfirm(false)
-      setIsClosingDeleteConfirm(false)
-      setPendingDeleteEquipo(null)
+      setShowEstadoModal(false)
+      setIsClosingEstadoModal(false)
     }, 300)
   }
-
-  async function confirmDeleteEquipo() {
-    if (!pendingDeleteEquipo) return
-    setDeleteLoading(true)
-    try {
-      await api.delete(`/equipos/${pendingDeleteEquipo.id}`)
-      closeDeleteConfirm()
-      load(filters)
-    } catch {
-      setError('No se pudo eliminar el equipo.')
-    } finally {
-      setDeleteLoading(false)
-    }
-  }
-
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setFormError('')
@@ -280,6 +318,77 @@ export default function Equipos() {
     }
   }
 
+  async function handleUpdateEstado(e: FormEvent) {
+    e.preventDefault()
+    setEstadoError('')
+
+    if (!equipoSeleccionado) return
+
+    // Validar campos obligatorios
+    if (estadoForm.estado === 'Inactivo' && !estadoForm.motivo) {
+      setEstadoError('Debes seleccionar un motivo de inactividad.')
+      return
+    }
+
+    if (estadoForm.estado === 'Inactivo' && !estadoForm.descripcion.trim()) {
+      setEstadoError('La descripción detallada es obligatoria.')
+      return
+    }
+
+    if (estadoForm.estado === 'EnMantenimiento' && !estadoForm.fechaInicio) {
+      setEstadoError('La fecha de inicio es obligatoria.')
+      return
+    }
+
+    if (estadoForm.estado === 'EnMantenimiento' && !estadoForm.horaInicio) {
+      setEstadoError('La hora de inicio es obligatoria.')
+      return
+    }
+
+    if (estadoForm.estado === 'EnMantenimiento' && !estadoForm.descripcionTecnica.trim()) {
+      setEstadoError('La descripción técnica es obligatoria.')
+      return
+    }
+
+    setEstadoLoading(true)
+    try {
+      const payload = {
+        estado: estadoForm.estado,
+        ...(estadoForm.estado === 'Inactivo' && {
+          motivo: estadoForm.motivo,
+          descripcion: estadoForm.descripcion,
+          tiempoEstimado: estadoForm.tiempoEstimado,
+          accionRequerida: estadoForm.accionRequerida,
+          prioridad: estadoForm.prioridad,
+          evidenciaUrl: estadoForm.evidenciaUrl,
+        }),
+        ...(estadoForm.estado === 'EnMantenimiento' && {
+          tipoMantenimiento: estadoForm.tipoMantenimiento,
+          motivoMantenimiento: estadoForm.motivoMantenimiento,
+          fechaInicio: estadoForm.fechaInicio,
+          horaInicio: estadoForm.horaInicio,
+          descripcionTecnica: estadoForm.descripcionTecnica,
+          tiempoEstimadoMantenimiento: estadoForm.tiempoEstimadoMantenimiento,
+          fechaFinEstimada: estadoForm.fechaFinEstimada,
+          prioridadMantenimiento: estadoForm.prioridadMantenimiento,
+          costoManoObra: estadoForm.costoManoObra,
+          costoRepuestos: estadoForm.costoRepuestos,
+          costoTotal: estadoForm.costoTotal,
+          evidenciaMantenimiento: estadoForm.evidenciaMantenimiento,
+        }),
+      }
+
+      await api.patch(`/equipos/${equipoSeleccionado.id}/estado`, payload)
+      closeEstadoModal()
+      load(filters)
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      setEstadoError(msg ?? 'Error al actualizar el estado.')
+    } finally {
+      setEstadoLoading(false)
+    }
+  }
+
   return (
     <div style={styles.page}>
       <div style={styles.toolbar}>
@@ -301,10 +410,10 @@ export default function Equipos() {
               type="text"
               inputMode="numeric"
               placeholder="ID"
-              value={filters.id}
+              value={draftFilters.id}
               onChange={e => {
                 const onlyDigits = e.target.value.replace(/\D/g, '')
-                setFilters(f => ({ ...f, id: onlyDigits, page: 1 }))
+                setDraftFilters(f => ({ ...f, id: onlyDigits }))
               }}
               className="filter-control"
             />
@@ -315,8 +424,8 @@ export default function Equipos() {
             <input
               id="filter-nombre"
               placeholder="Nombre"
-              value={filters.nombre}
-              onChange={e => setFilters(f => ({ ...f, nombre: e.target.value, page: 1 }))}
+              value={draftFilters.nombre}
+              onChange={e => setDraftFilters(f => ({ ...f, nombre: e.target.value }))}
               className="filter-control"
             />
           </label>
@@ -326,8 +435,8 @@ export default function Equipos() {
             <span className="select-wrap">
               <select
                 id="filter-sector"
-                value={filters.sector}
-                onChange={e => setFilters(f => ({ ...f, sector: e.target.value, page: 1 }))}
+                value={draftFilters.sector}
+                onChange={e => setDraftFilters(f => ({ ...f, sector: e.target.value }))}
                 className="filter-control"
               >
                 <option value="">Todas las categorias</option>
@@ -342,8 +451,8 @@ export default function Equipos() {
             <span className="select-wrap">
               <select
                 id="filter-estado"
-                value={filters.estado}
-                onChange={e => setFilters(f => ({ ...f, estado: e.target.value, page: 1 }))}
+                value={draftFilters.estado}
+                onChange={e => setDraftFilters(f => ({ ...f, estado: e.target.value }))}
                 className="filter-control"
               >
                 <option value="">Todos los estados</option>
@@ -358,10 +467,10 @@ export default function Equipos() {
             <span className="select-wrap">
               <select
                 id="filter-bloque"
-                value={filtroBloque}
+                value={draftBloque}
                 onChange={e => {
                   const bloque = e.target.value
-                  setFilters(f => ({ ...f, ubicacion: buildUbicacion(filtroAula, bloque), page: 1 }))
+                  setDraftFilters(f => ({ ...f, ubicacion: buildUbicacion(draftAula, bloque) }))
                 }}
                 className="filter-control"
               >
@@ -381,12 +490,12 @@ export default function Equipos() {
             <span className="select-wrap">
               <select
                 id="filter-aula"
-                value={filtroAula}
+                value={draftAula}
                 onChange={e => {
                   const aula = e.target.value
-                  setFilters(f => ({ ...f, ubicacion: buildUbicacion(aula, filtroBloque), page: 1 }))
+                  setDraftFilters(f => ({ ...f, ubicacion: buildUbicacion(aula, draftBloque) }))
                 }}
-                disabled={!filtroBloque || filtroBloque === 'ALMACEN'}
+                disabled={!draftBloque || draftBloque === 'ALMACEN'}
                 className="filter-control"
               >
                 <option value="">Todas las aulas</option>
@@ -399,6 +508,7 @@ export default function Equipos() {
 
         <div className="filters-divider" aria-hidden="true" />
         <div className="filters-actions">
+          <button type="button" className="btn-primary" onClick={applyFilters}>Filtrar</button>
           <button type="button" className="btn-ghost" onClick={clearFilters}>Limpiar</button>
         </div>
       </section>
@@ -419,7 +529,7 @@ export default function Equipos() {
                 <th>Categoria</th>
                 <th>Estado</th>
                 <th>Ubicación</th>
-                {isAdmin && <th>Acciones</th>}
+                {canEdit && <th>Acciones</th>}
               </tr>
             </thead>
             <tbody className="equipos-tbody">
@@ -430,14 +540,18 @@ export default function Equipos() {
                   <td><span className={`tag data-chip ${sectorTag[eq.sector]}`} style={{ animationDelay: `${index * 90 + 90}ms` }}>{eq.sector}</span></td>
                   <td><span className={`tag data-chip ${estadoTag[eq.estado]}`} style={{ animationDelay: `${index * 90 + 140}ms` }}>{formatEstadoLabel(eq.estado)}</span></td>
                   <td><span className="ubicacion-pill data-chip" style={{ animationDelay: `${index * 90 + 190}ms` }}>{formatUbicacionLabel(eq.ubicacion)}</span></td>
-                  {isAdmin && (
+                  {canEdit && (
                     <td>
                       <div className="row-actions">
+                        <button 
+                          className="btn-outline equipos-status-btn action-btn" 
+                          onClick={() => openEstadoModal(eq)} 
+                          style={{ padding: '5px 12px', fontSize: '0.82rem', marginRight: '6px' }}
+                        >
+                          Estado
+                        </button>
                         <button className="btn-ghost equipos-edit-btn action-btn" onClick={() => openEdit(eq)} style={{ padding: '5px 12px', fontSize: '0.82rem' }}>
                           Editar
-                        </button>
-                        <button className="btn-danger equipos-delete-btn action-btn" onClick={() => openDeleteConfirm(eq)} style={{ padding: '5px 12px', fontSize: '0.82rem' }}>
-                          Eliminar
                         </button>
                       </div>
                     </td>
@@ -476,7 +590,21 @@ export default function Equipos() {
       </div>
 
       {showForm && (
-        <div className={`edit-modal-overlay ${isClosingForm ? 'is-closing' : ''}`} onClick={closeFormModal}>
+        <div 
+          className={`edit-modal-overlay ${isClosingForm ? 'is-closing' : ''}`} 
+          onClick={closeFormModal}
+          onWheel={(e) => {
+            // Permitir scroll/rueda en los selects abiertos
+            const target = e.target as HTMLElement
+            if (target.tagName === 'SELECT' || target.closest('.edit-modal-card')) {
+              e.stopPropagation()
+            }
+          }}
+          onScroll={(e) => {
+            // Permitir que el scroll del trackpad se propague al modal
+            e.stopPropagation()
+          }}
+        >
           <div className={`edit-modal-card ${isClosingForm ? 'is-closing' : ''}`} onClick={e => e.stopPropagation()}>
             <h3 className="edit-modal-title">{editing ? 'Editar equipo' : 'Nuevo equipo'}</h3>
             <form onSubmit={handleSubmit} className="edit-modal-form">
@@ -591,24 +719,363 @@ export default function Equipos() {
         </div>
       )}
 
-      {showDeleteConfirm && (
-        <div className={`equipos-delete-confirm-overlay ${isClosingDeleteConfirm ? 'is-closing' : ''}`} onClick={closeDeleteConfirm}>
-          <div className={`equipos-delete-confirm-card ${isClosingDeleteConfirm ? 'is-closing' : ''}`} onClick={e => e.stopPropagation()}>
-            <h4>Seguro que quiere eliminar el equipo?</h4>
-            <p>Esta opcion no se puede deshacer.</p>
-            <div className="equipos-delete-confirm-actions">
-              <button type="button" className="btn-ghost" onClick={closeDeleteConfirm} disabled={deleteLoading}>
-                Cancelar
-              </button>
-              <button
-                type="button"
-                className="btn-danger equipos-delete-btn action-btn"
-                onClick={confirmDeleteEquipo}
-                disabled={deleteLoading}
-              >
-                {deleteLoading ? 'Eliminando...' : `Eliminar ${pendingDeleteEquipo?.nombre ?? ''}`}
-              </button>
-            </div>
+      {showEstadoModal && equipoSeleccionado && (
+        <div 
+          style={styles.overlay} 
+          onClick={closeEstadoModal}
+          onWheel={(e) => {
+            // Permitir scroll/rueda en los selects abiertos
+            const target = e.target as HTMLElement
+            if (target.tagName === 'SELECT' || target.closest('[style*="maxWidth"]')) {
+              e.stopPropagation()
+            }
+          }}
+          onScroll={(e) => {
+            e.stopPropagation()
+          }}
+        >
+          <div
+            style={{
+              ...styles.modal,
+              animation: isClosingEstadoModal ? 'none' : 'equipos-modal-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+              opacity: isClosingEstadoModal ? 0 : 1,
+              transform: isClosingEstadoModal ? 'scale(0.85)' : 'scale(1)',
+              transition: 'all 0.3s ease-out',
+              maxWidth: '640px',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <h2 style={{ margin: '0 0 6px 0', fontSize: '1.4em' }}>Cambiar estado</h2>
+            <p style={{ margin: '0 0 20px 0', color: 'var(--muted)', fontSize: '0.9em' }}>
+              Equipo: <strong>{equipoSeleccionado.nombre}</strong> (ID: {equipoSeleccionado.id})
+            </p>
+
+            <form onSubmit={handleUpdateEstado}>
+              {/* Estado del equipo - Siempre visible */}
+              <label className="edit-modal-field">
+                <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Estado del equipo *</span>
+                <span className="edit-modal-select-wrap">
+                  <select
+                    className="modal-control"
+                    value={estadoForm.estado}
+                    onChange={e => setEstadoForm(f => ({ ...f, estado: e.target.value as any }))}
+                  >
+                    <option value="Activo">Activo</option>
+                    <option value="Inactivo">Inactivo</option>
+                    <option value="EnMantenimiento">En mantenimiento</option>
+                  </select>
+                  <span className="edit-modal-chevron" aria-hidden="true" />
+                </span>
+              </label>
+
+              {estadoForm.estado === 'Inactivo' && (
+                <>
+                  {/* Fila 1: Estado y Motivo - 2 columnas */}
+                  <div className="estado-form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                    <label className="edit-modal-field">
+                      <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Motivo de inactividad *</span>
+                      <span className="edit-modal-select-wrap">
+                        <select
+                          className="modal-control"
+                          value={estadoForm.motivo}
+                          onChange={e => setEstadoForm(f => ({ ...f, motivo: e.target.value }))}
+                          required
+                        >
+                          <option value="">Selecciona un motivo</option>
+                          <option value="FueraDeServicio">Fuera de servicio</option>
+                          <option value="SinUsoTemporal">Sin uso temporal</option>
+                          <option value="AveriaDetectada">Avería detectada</option>
+                          <option value="FaltaDeOperador">Falta de operador</option>
+                          <option value="Obsolescencia">Obsolescencia</option>
+                          <option value="BajaAdministrativa">Baja administrativa</option>
+                          <option value="EnEsperaDeRepuestos">En espera de repuestos</option>
+                          <option value="DesconectadoPorSeguridad">Desconectado por seguridad</option>
+                        </select>
+                        <span className="edit-modal-chevron" aria-hidden="true" />
+                      </span>
+                    </label>
+                  </div>
+
+                  {/* Fila 2: Descripción - Full width */}
+                  <label className="edit-modal-field">
+                    <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Descripción detallada *</span>
+                    <textarea
+                      className="modal-control"
+                      value={estadoForm.descripcion}
+                      onChange={e => setEstadoForm(f => ({ ...f, descripcion: e.target.value }))}
+                      placeholder="Qué ocurrió, qué se observó, qué impide su uso"
+                      style={{ minHeight: '100px', fontFamily: 'inherit', padding: '10px', resize: 'vertical' }}
+                      required
+                    />
+                  </label>
+
+                  {/* Fila 3: Tiempo, Acción, Prioridad - 3 columnas */}
+                  <div className="estado-form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '14px' }}>
+                    <label className="edit-modal-field">
+                      <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Tiempo estimado de inactividad</span>
+                      <span className="edit-modal-select-wrap">
+                        <select
+                          className="modal-control"
+                          value={estadoForm.tiempoEstimado}
+                          onChange={e => setEstadoForm(f => ({ ...f, tiempoEstimado: e.target.value as any }))}
+                        >
+                          <option value="Horas">Horas</option>
+                          <option value="Dias">Días</option>
+                          <option value="Indefinido">Indefinido</option>
+                        </select>
+                        <span className="edit-modal-chevron" aria-hidden="true" />
+                      </span>
+                    </label>
+
+                    <label className="edit-modal-field">
+                      <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Acción requerida</span>
+                      <span className="edit-modal-select-wrap">
+                        <select
+                          className="modal-control"
+                          value={estadoForm.accionRequerida}
+                          onChange={e => setEstadoForm(f => ({ ...f, accionRequerida: e.target.value as any }))}
+                        >
+                          <option value="Inspeccion">Inspección</option>
+                          <option value="Reparacion">Reparación</option>
+                          <option value="Repuesto">Repuesto</option>
+                          <option value="Autorizacion">Autorización</option>
+                          <option value="Reemplazo">Reemplazo</option>
+                        </select>
+                        <span className="edit-modal-chevron" aria-hidden="true" />
+                      </span>
+                    </label>
+
+                    <label className="edit-modal-field">
+                      <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Prioridad</span>
+                      <span className="edit-modal-select-wrap">
+                        <select
+                          className="modal-control"
+                          value={estadoForm.prioridad}
+                          onChange={e => setEstadoForm(f => ({ ...f, prioridad: e.target.value as any }))}
+                        >
+                          <option value="Baja">Baja</option>
+                          <option value="Media">Media</option>
+                          <option value="Alta">Alta</option>
+                          <option value="Critica">Crítica</option>
+                        </select>
+                        <span className="edit-modal-chevron" aria-hidden="true" />
+                      </span>
+                    </label>
+                  </div>
+
+                  {/* Fila 4: Evidencia - Full width */}
+                  <label className="edit-modal-field">
+                    <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Evidencia (URL de imagen)</span>
+                    <input
+                      type="url"
+                      className="modal-control"
+                      value={estadoForm.evidenciaUrl}
+                      onChange={e => setEstadoForm(f => ({ ...f, evidenciaUrl: e.target.value }))}
+                      placeholder="https://ejemplo.com/foto.jpg"
+                    />
+                  </label>
+                </>
+              )}
+
+              {estadoForm.estado === 'EnMantenimiento' && (
+                <>
+                  {/* Fila 1: Tipo y Motivo de mantenimiento - 2 columnas */}
+                  <div className="estado-form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                    <label className="edit-modal-field">
+                      <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Tipo de mantenimiento *</span>
+                      <span className="edit-modal-select-wrap">
+                        <select
+                          className="modal-control"
+                          value={estadoForm.tipoMantenimiento}
+                          onChange={e => setEstadoForm(f => ({ ...f, tipoMantenimiento: e.target.value as any }))}
+                        >
+                          <option value="Preventivo">Preventivo</option>
+                          <option value="Correctivo">Correctivo</option>
+                          <option value="Predictivo">Predictivo</option>
+                          <option value="Calibracion">Calibración</option>
+                          <option value="LimpiezaTecnica">Limpieza técnica</option>
+                          <option value="RevisionGeneral">Revisión general</option>
+                          <option value="SustitucionPiezas">Sustitución de piezas</option>
+                        </select>
+                        <span className="edit-modal-chevron" aria-hidden="true" />
+                      </span>
+                    </label>
+
+                    <label className="edit-modal-field">
+                      <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Motivo del mantenimiento *</span>
+                      <span className="edit-modal-select-wrap">
+                        <select
+                          className="modal-control"
+                          value={estadoForm.motivoMantenimiento}
+                          onChange={e => setEstadoForm(f => ({ ...f, motivoMantenimiento: e.target.value as any }))}
+                        >
+                          <option value="FalloDetectado">Fallo detectado</option>
+                          <option value="ProgramacionPeriodica">Programación periódica</option>
+                          <option value="Desgaste">Desgaste</option>
+                          <option value="RuidoAnormal">Ruido anormal</option>
+                          <option value="BajoRendimiento">Bajo rendimiento</option>
+                          <option value="ErrorSistema">Error del sistema</option>
+                          <option value="InspeccionObligatoria">Inspección obligatoria</option>
+                        </select>
+                        <span className="edit-modal-chevron" aria-hidden="true" />
+                      </span>
+                    </label>
+                  </div>
+
+                  {/* Fila 2: Fecha y Hora de inicio - 2 columnas */}
+                  <div className="estado-form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                    <label className="edit-modal-field">
+                      <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Fecha de inicio *</span>
+                      <input
+                        type="date"
+                        className="modal-control"
+                        value={estadoForm.fechaInicio}
+                        onChange={e => setEstadoForm(f => ({ ...f, fechaInicio: e.target.value }))}
+                        required
+                      />
+                    </label>
+
+                    <label className="edit-modal-field">
+                      <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Hora de inicio *</span>
+                      <input
+                        type="time"
+                        className="modal-control"
+                        value={estadoForm.horaInicio}
+                        onChange={e => setEstadoForm(f => ({ ...f, horaInicio: e.target.value }))}
+                        required
+                      />
+                    </label>
+                  </div>
+
+                  {/* Fila 3: Descripción técnica - Full width */}
+                  <label className="edit-modal-field">
+                    <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Descripción técnica *</span>
+                    <textarea
+                      className="modal-control"
+                      value={estadoForm.descripcionTecnica}
+                      onChange={e => setEstadoForm(f => ({ ...f, descripcionTecnica: e.target.value }))}
+                      placeholder="Qué presenta el equipo, qué se encontró, qué se va a realizar"
+                      style={{ minHeight: '100px', fontFamily: 'inherit', padding: '10px', resize: 'vertical' }}
+                      required
+                    />
+                  </label>
+
+                  {/* Fila 4: Tiempo estimado y Prioridad - 2 columnas */}
+                  <div className="estado-form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                    <label className="edit-modal-field">
+                      <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Tiempo estimado</span>
+                      <span className="edit-modal-select-wrap">
+                        <select
+                          className="modal-control"
+                          value={estadoForm.tiempoEstimadoMantenimiento}
+                          onChange={e => setEstadoForm(f => ({ ...f, tiempoEstimadoMantenimiento: e.target.value as any }))}
+                        >
+                          <option value="Horas">Horas</option>
+                          <option value="Dias">Días</option>
+                          <option value="FechaEstimada">Fecha estimada de finalización</option>
+                        </select>
+                        <span className="edit-modal-chevron" aria-hidden="true" />
+                      </span>
+                    </label>
+
+                    <label className="edit-modal-field">
+                      <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Nivel de prioridad</span>
+                      <span className="edit-modal-select-wrap">
+                        <select
+                          className="modal-control"
+                          value={estadoForm.prioridadMantenimiento}
+                          onChange={e => setEstadoForm(f => ({ ...f, prioridadMantenimiento: e.target.value as any }))}
+                        >
+                          <option value="Baja">Baja</option>
+                          <option value="Media">Media</option>
+                          <option value="Alta">Alta</option>
+                          <option value="Critica">Crítica</option>
+                        </select>
+                        <span className="edit-modal-chevron" aria-hidden="true" />
+                      </span>
+                    </label>
+                  </div>
+
+                  {/* Fila 5: Fecha fin estimada - Condicional */}
+                  {estadoForm.tiempoEstimadoMantenimiento === 'FechaEstimada' && (
+                    <label className="edit-modal-field">
+                      <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Fecha estimada de finalización</span>
+                      <input
+                        type="date"
+                        className="modal-control"
+                        value={estadoForm.fechaFinEstimada}
+                        onChange={e => setEstadoForm(f => ({ ...f, fechaFinEstimada: e.target.value }))}
+                      />
+                    </label>
+                  )}
+
+                  {/* Fila 6: Costos - 3 columnas */}
+                  <div className="estado-form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '14px' }}>
+                    <label className="edit-modal-field">
+                      <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Costo estimado - Mano de obra</span>
+                      <input
+                        type="number"
+                        className="modal-control"
+                        value={estadoForm.costoManoObra}
+                        onChange={e => setEstadoForm(f => ({ ...f, costoManoObra: e.target.value }))}
+                        placeholder="0.00"
+                        min="0"
+                        step="0.01"
+                      />
+                    </label>
+
+                    <label className="edit-modal-field">
+                      <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Costo estimado - Repuestos</span>
+                      <input
+                        type="number"
+                        className="modal-control"
+                        value={estadoForm.costoRepuestos}
+                        onChange={e => setEstadoForm(f => ({ ...f, costoRepuestos: e.target.value }))}
+                        placeholder="0.00"
+                        min="0"
+                        step="0.01"
+                      />
+                    </label>
+
+                    <label className="edit-modal-field">
+                      <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Costo total estimado</span>
+                      <input
+                        type="number"
+                        className="modal-control"
+                        value={estadoForm.costoTotal}
+                        onChange={e => setEstadoForm(f => ({ ...f, costoTotal: e.target.value }))}
+                        placeholder="0.00"
+                        min="0"
+                        step="0.01"
+                      />
+                    </label>
+                  </div>
+
+                  {/* Fila 7: Evidencia - Full width */}
+                  <label className="edit-modal-field">
+                    <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Evidencia (URL de imagen)</span>
+                    <input
+                      type="url"
+                      className="modal-control"
+                      value={estadoForm.evidenciaMantenimiento}
+                      onChange={e => setEstadoForm(f => ({ ...f, evidenciaMantenimiento: e.target.value }))}
+                      placeholder="https://ejemplo.com/foto.jpg"
+                    />
+                  </label>
+                </>
+              )}
+
+              {estadoError && <div className="error-box">{estadoError}</div>}
+
+              <div className="edit-modal-actions">
+                <button type="submit" className="btn-primary edit-modal-save action-btn" disabled={estadoLoading} style={{ flex: 1, borderRadius: '10px' }}>
+                  {estadoLoading ? 'Actualizando...' : 'Actualizar estado'}
+                </button>
+                <button type="button" className="btn-ghost edit-modal-cancel action-btn" onClick={closeEstadoModal} style={{ borderRadius: '10px' }}>
+                  Cancelar
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

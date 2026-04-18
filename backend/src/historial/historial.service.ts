@@ -69,10 +69,29 @@ export class HistorialService {
     };
   }
 
-  async findAll() {
+  async findAll(filters?: { equipoId?: number; fechaDesde?: Date; fechaHasta?: Date }) {
+    const where: any = {}
+
+    if (filters?.equipoId) {
+      where.equipoId = filters.equipoId
+    }
+
+    if (filters?.fechaDesde && filters.fechaHasta) {
+      const fechaDesde = new Date(filters.fechaDesde)
+      fechaDesde.setHours(0, 0, 0, 0)
+      const fechaHasta = new Date(filters.fechaHasta)
+      fechaHasta.setHours(23, 59, 59, 999)
+      where.fecha = {
+        gte: fechaDesde,
+        lte: fechaHasta,
+      }
+    }
+
     const data = await this.prisma.historialCambios.findMany({
+      where,
       orderBy: { fecha: 'desc' },
       include: {
+        equipo: true,
         usuario: {
           select: {
             id: true,
@@ -88,22 +107,7 @@ export class HistorialService {
   }
 
   async findByEquipo(equipoId: number) {
-    const data = await this.prisma.historialCambios.findMany({
-      where: { equipoId },
-      orderBy: { fecha: 'desc' },
-      include: {
-        usuario: {
-          select: {
-            id: true,
-            nombre: true,
-            email: true,
-            rol: true,
-          },
-        },
-      },
-    });
-
-    return data.map((item) => this.mapEntry(item));
+    return this.findAll({ equipoId })
   }
 
   async clearAll() {

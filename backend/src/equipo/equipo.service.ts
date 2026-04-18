@@ -282,8 +282,8 @@ export class EquipoService {
     return actualizado;
   }
 
-  // ❌ Eliminar equipo y registrar el evento
-  async remove(id: number, user: AuthUser) {
+  // 🚨 Actualizar estado del equipo con detalles de inactividad
+  async updateEstado(id: number, dto: any, user: AuthUser) {
     const equipoExiste = await this.prisma.equipo.findUnique({
       where: { id },
     });
@@ -292,29 +292,42 @@ export class EquipoService {
       throw new NotFoundException(ERROR_MESSAGES.EQUIPO.NOT_FOUND);
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      await tx.historialCambios.create({
+    const estado = this.normalizarEstado(dto.estado);
+    this.validarEstado(estado);
+
+    // Actualizar el estado del equipo
+    const actualizado = await this.prisma.equipo.update({
+      where: { id },
+      data: { estado: estado as any },
+    });
+
+    // Si el estado cambia a Inactivo, registrar los detalles de inactividad
+    if (estado === 'Inactivo' && dto.motivo) {
+      await this.prisma.registroInactividad.create({
         data: {
-          equipoId: equipoExiste.id,
+          equipoId: id,
           usuarioId: Number(user.userId),
-          campo: 'ELIMINACION',
-          valorAnterior: JSON.stringify({
-            id: equipoExiste.id,
-            nombre: equipoExiste.nombre,
-            sector: equipoExiste.sector,
-            descripcion: equipoExiste.descripcion,
-            estado: equipoExiste.estado,
-            ubicacion: equipoExiste.ubicacion,
-          }),
-          valorNuevo: null,
+          motivo: dto.motivo,
+          descripcion: dto.descripcion || '',
+          tiempoEstimado: dto.tiempoEstimado || 'Indefinido',
+          accionRequerida: dto.accionRequerida || 'Inspeccion',
+          prioridad: dto.prioridad || 'Media',
+          evidenciaUrl: dto.evidenciaUrl,
         },
       });
+    }
 
-      const eliminado = await tx.equipo.delete({
-        where: { id },
-      });
-
-      return eliminado;
+    // Registrar el cambio en el historial
+    await this.prisma.historialCambios.create({
+      data: {
+        equipoId: actualizado.id,
+        usuarioId: Number(user.userId),
+        campo: 'estado',
+        valorAnterior: equipoExiste.estado,
+        valorNuevo: estado,
+      },
     });
+
+    return actualizado;
   }
 }
