@@ -199,11 +199,13 @@
 .profile-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
-  gap: 24px;
+  gap: 28px;
+  max-width: 1400px;
+  margin: 0 auto;
 }
 
 .profile-panel {
-  padding: 28px;
+  padding: 32px;
 }
 
 .profile-form-panel {
@@ -216,73 +218,116 @@
 
 .profile-form-panel {
   display: grid;
-  gap: 24px;
+  gap: 30px;
 }
 
 .profile-side-panel {
   display: grid;
   align-content: start;
-  gap: 18px;
+  gap: 20px;
 }
 
 .profile-section-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
+  gap: 20px;
+  padding: 2px 0 20px;
+  border-bottom: 1px solid color-mix(in srgb, var(--profile-accent-aqua) 24%, transparent);
+}
+
+.profile-section-head > div {
+  flex: 1;
+}
+
+.profile-form-panel .profile-section-kicker {
+  letter-spacing: 0.12em;
+  font-size: 0.74rem;
 }
 
 .profile-section-head h3 {
   margin-top: 8px;
-  font-size: 1.3rem;
+  font-size: clamp(1.34rem, 2vw, 1.56rem);
+  font-weight: 800;
+  line-height: 1.08;
 }
 
 .profile-save-badge {
   align-self: center;
-  padding: 8px 12px;
+  padding: 6px 14px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--profile-accent-aqua) 18%, transparent);
-  color: color-mix(in srgb, var(--profile-accent-aqua) 76%, #0f766e);
-  font-size: 0.8rem;
-  font-weight: 700;
+  background: color-mix(in srgb, var(--profile-accent-aqua) 20%, transparent);
+  color: color-mix(in srgb, var(--profile-accent-aqua) 78%, #0f766e);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
   animation: profileStatusIn 0.28s ease;
 }
 
 .profile-info-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-areas:
+    'user full'
+    'email phone'
+    'role role';
+  gap: 18px 20px;
+  max-width: 100%;
+  margin: 0 auto;
 }
 
 .profile-info-card {
   display: grid;
-  gap: 10px;
+  gap: 12px;
+  align-content: start;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--border-main) 80%, transparent);
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #ffffff 8%, transparent);
   opacity: 0;
   transform: translateY(8px);
   animation: profileInfoIn 0.34s ease-out both;
+  transition: border-color 0.24s ease, box-shadow 0.24s ease, transform 0.22s ease;
 }
 
-.profile-info-card:nth-child(1) { animation-delay: 0.34s; }
-.profile-info-card:nth-child(2) { animation-delay: 0.42s; }
-.profile-info-card:nth-child(3) { animation-delay: 0.5s; }
-.profile-info-card:nth-child(4) { animation-delay: 0.58s; }
-.profile-info-card:nth-child(5) { animation-delay: 0.66s; }
+.profile-info-card:hover,
+.profile-info-card:focus-within {
+  border-color: color-mix(in srgb, var(--profile-accent-aqua) 34%, var(--border-main));
+  box-shadow: 0 12px 22px color-mix(in srgb, var(--profile-accent-aqua) 11%, transparent);
+  transform: translateY(-1px);
+}
+
+.profile-info-card:nth-child(1) { grid-area: user; }
+.profile-info-card:nth-child(2) { grid-area: full; }
+.profile-info-card:nth-child(3) { grid-area: email; }
+.profile-info-card:nth-child(4) { grid-area: phone; }
+.profile-info-card:nth-child(5) { grid-area: role; }
+
+.profile-info-card:nth-child(1) { animation-delay: 0.36s; }
+.profile-info-card:nth-child(2) { animation-delay: 0.44s; }
+.profile-info-card:nth-child(3) { animation-delay: 0.52s; }
+.profile-info-card:nth-child(4) { animation-delay: 0.6s; }
+.profile-info-card:nth-child(5) { animation-delay: 0.68s; }
 
 .profile-info-label {
-  font-size: 0.84rem;
+  font-size: 0.8rem;
   font-weight: 700;
-  color: var(--text-soft);
+  letter-spacing: 0.02em;
+  color: color-mix(in srgb, var(--profile-accent-aqua) 62%, var(--text-soft));
+  text-transform: uppercase;
+  opacity: 0.92;
 }
 
 .profile-info-input-wrap {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 58px;
-  padding: 0 16px;
+  min-height: 56px;
+  padding: 0 18px;
   border: 1px solid color-mix(in srgb, var(--border-main) 88%, #d1d5db);
-  border-radius: 16px;
-  background: var(--surface-soft);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface-soft) 94%, transparent);
   transition: border-color 0.24s ease, box-shadow 0.24s ease, transform 0.22s ease, background 0.22s ease;
 }
 
@@ -315,6 +360,8 @@
   padding: 0;
   background: transparent;
   color: var(--text-main);
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 .profile-info-input[readonly] {
@@ -322,10 +369,194 @@
   cursor: default;
 }
 
+.phone-info-card {
+  position: relative;
+  max-width: none;
+  margin: 0;
+  justify-self: stretch;
+}
+
+.phone-input-wrap {
+  gap: 10px;
+  align-items: center;
+}
+
+.profile-phone-country {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border-right: 1px solid color-mix(in srgb, var(--border-main) 82%, transparent);
+  padding-right: 8px;
+  margin-right: 2px;
+  flex: 0 0 auto;
+}
+
+.profile-phone-country-button {
+  border: 0;
+  background: transparent;
+  color: var(--text-main);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 10px;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.profile-phone-country-button:hover {
+  background: color-mix(in srgb, var(--profile-accent-aqua) 16%, transparent);
+  transform: translateY(-1px);
+}
+
+.profile-phone-flag {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.profile-phone-prefix {
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: color-mix(in srgb, var(--profile-accent-aqua) 65%, var(--text-main));
+}
+
+.profile-phone-caret {
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid color-mix(in srgb, var(--text-main) 72%, transparent);
+  border-bottom: 2px solid color-mix(in srgb, var(--text-main) 72%, transparent);
+  transform: translateY(-1px) rotate(45deg);
+}
+
+.profile-phone-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  width: min(360px, calc(100vw - 48px));
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--border-main) 74%, var(--profile-accent-blue));
+  background: color-mix(in srgb, var(--surface) 95%, #021a2a 5%);
+  box-shadow: 0 20px 38px rgba(2, 12, 22, 0.42);
+  padding: 10px;
+  z-index: 50;
+  animation: profilePhoneDropdownIn 0.2s ease-out;
+}
+
+.profile-phone-search {
+  width: 100%;
+  min-height: 38px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--border-main) 80%, transparent);
+  background: color-mix(in srgb, var(--surface-soft) 88%, transparent);
+  color: var(--text-main);
+  padding: 0 12px;
+  margin-bottom: 8px;
+}
+
+.profile-phone-search:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--profile-accent-aqua) 45%, var(--border-main));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--profile-accent-aqua) 18%, transparent);
+}
+
+.profile-phone-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  display: grid;
+  gap: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--profile-accent-aqua) 38%, transparent) transparent;
+}
+
+.profile-phone-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.profile-phone-list::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--profile-accent-aqua) 40%, transparent);
+  border-radius: 999px;
+}
+
+.profile-phone-option {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--text-main);
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.18s ease, transform 0.18s ease;
+}
+
+.profile-phone-option:hover,
+.profile-phone-option.is-selected {
+  background: color-mix(in srgb, var(--profile-accent-aqua) 18%, transparent);
+  transform: translateX(1px);
+}
+
+.profile-phone-name {
+  font-size: 0.9rem;
+}
+
+.profile-phone-code {
+  color: color-mix(in srgb, var(--text-soft) 82%, var(--profile-accent-blue));
+  font-weight: 700;
+}
+
+.profile-phone-input {
+  min-width: 0;
+}
+
+.phone-input-wrap.is-invalid {
+  border-color: color-mix(in srgb, #ef4444 70%, var(--border-main));
+  box-shadow: 0 0 0 2px color-mix(in srgb, #ef4444 25%, transparent);
+}
+
+.profile-phone-error {
+  font-size: 0.76rem;
+  color: color-mix(in srgb, #ef4444 88%, #fca5a5);
+  font-weight: 700;
+}
+
+.profile-phone-hint {
+  font-size: 0.75rem;
+  color: var(--text-soft);
+}
+
+@keyframes profilePhoneDropdownIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .profile-form-actions {
   display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
   flex-wrap: wrap;
-  gap: 12px;
+  padding-top: 18px;
+  border-top: 1px solid color-mix(in srgb, var(--border-main) 55%, transparent);
+  margin-top: 8px;
+}
+
+.profile-form-actions .btn-primary,
+.profile-form-actions .btn-ghost {
+  min-width: 156px;
 }
 
 .profile-page .btn-primary,
@@ -335,6 +566,8 @@
 .profile-close-button {
   position: relative;
   overflow: hidden;
+  min-height: 46px;
+  padding: 0 24px;
   transition: transform 0.22s ease, box-shadow 0.24s ease, border-color 0.24s ease, color 0.24s ease, background 0.24s ease;
 }
 
@@ -805,6 +1038,12 @@
 
   .profile-info-grid {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      'user'
+      'full'
+      'email'
+      'phone'
+      'role';
   }
 
   .profile-section-head,

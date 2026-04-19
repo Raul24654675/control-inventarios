@@ -21,6 +21,10 @@ export class HistorialController {
   @Get()
   findAll(
     @Query('equipoId') equipoId?: string,
+    @Query('equipo') equipo?: string,
+    @Query('realizadoPor') realizadoPor?: string,
+    @Query('accion') accion?: string,
+    @Query('cambio') cambio?: string,
     @Query('fechaDesde') fechaDesde?: string,
     @Query('fechaHasta') fechaHasta?: string,
   ) {
@@ -51,6 +55,10 @@ export class HistorialController {
 
     return this.historialService.findAll({
       equipoId: parsedEquipoId,
+      equipo,
+      realizadoPor,
+      accion,
+      cambio,
       fechaDesde: parsedFechaDesde,
       fechaHasta: parsedFechaHasta,
     })

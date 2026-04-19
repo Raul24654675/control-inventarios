@@ -317,14 +317,65 @@ export class EquipoService {
       });
     }
 
-    // Registrar el cambio en el historial
+    // Registrar el cambio en el historial con detalle completo
+    const detalle: Record<string, unknown> = { estado };
+
+    if (estado === 'Inactivo' && dto.motivo) {
+      Object.assign(detalle, {
+        motivo: dto.motivo,
+        descripcion: dto.descripcion || '',
+        tiempoEstimado: dto.tiempoEstimado || 'Indefinido',
+        accionRequerida: dto.accionRequerida || 'Inspeccion',
+        prioridad: dto.prioridad || 'Media',
+        evidenciaUrl: dto.evidenciaUrl || null,
+      });
+    }
+
+    if (estado === 'EnMantenimiento') {
+      Object.assign(detalle, {
+        tipoMantenimiento: dto.tipoMantenimiento || null,
+        motivoMantenimiento: dto.motivoMantenimiento || null,
+        fechaInicio: dto.fechaInicio || null,
+        horaInicio: dto.horaInicio || null,
+        descripcionTecnica: dto.descripcionTecnica || null,
+        tiempoEstimadoMantenimiento: dto.tiempoEstimadoMantenimiento || null,
+        fechaFinEstimada: dto.fechaFinEstimada || null,
+        prioridadMantenimiento: dto.prioridadMantenimiento || null,
+        costoManoObra: dto.costoManoObra || null,
+        costoRepuestos: dto.costoRepuestos || null,
+        costoTotal: dto.costoTotal || null,
+        evidenciaMantenimiento: dto.evidenciaMantenimiento || null,
+      });
+    }
+
+    if (estado === 'Activo') {
+      const estadoPrevio = dto.estadoPrevio || equipoExiste.estado;
+      Object.assign(detalle, { estadoPrevio });
+
+      if (estadoPrevio === 'Inactivo') {
+        Object.assign(detalle, {
+          motivoReactivacion: dto.motivoReactivacion || null,
+          justificacionReactivacion: dto.justificacionReactivacion || null,
+          observacionesReactivacion: dto.observacionesReactivacion || null,
+        });
+      } else if (estadoPrevio === 'EnMantenimiento') {
+        Object.assign(detalle, {
+          tipoMantenimientoRealizado: dto.tipoMantenimientoRealizado || null,
+          resultadoMantenimiento: dto.resultadoMantenimiento || null,
+          pruebasRealizadas: dto.pruebasRealizadas || [],
+          descripcionReparacion: dto.descripcionReparacion || null,
+          condicionActual: dto.condicionActual || null,
+        });
+      }
+    }
+
     await this.prisma.historialCambios.create({
       data: {
         equipoId: actualizado.id,
         usuarioId: Number(user.userId),
         campo: 'estado',
-        valorAnterior: equipoExiste.estado,
-        valorNuevo: estado,
+        valorAnterior: JSON.stringify({ estado: equipoExiste.estado }),
+        valorNuevo: JSON.stringify(detalle),
       },
     });
 

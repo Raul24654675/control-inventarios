@@ -1,14 +1,18 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { DayPicker } from 'react-day-picker'
+import { es } from 'date-fns/locale'
 import api from '../api'
 import { useAuth } from '../useAuth'
 import type { Equipo, Sector, Estado } from '../types'
+import 'react-day-picker/style.css'
 import './Equipos.css'
 
 const SECTORES: Sector[] = ['Electrica', 'Neumatica', 'Electronica']
 const ESTADOS: Estado[] = ['Activo', 'Inactivo', 'EnMantenimiento']
 const BLOQUES = ['A', 'B', 'ALMACEN'] as const
 const AULAS = ['201', '202', '203', '204', '301', '302', '303', '304'] as const
+const HORAS_12 = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'] as const
 
 function splitUbicacion(ubicacion: string) {
   const raw = (ubicacion ?? '').trim().toUpperCase()
@@ -75,6 +79,78 @@ function formatEstadoLabel(estado: Estado | string) {
   if (estado === 'INACTIVO') return 'Inactivo'
   if (estado === 'MANTENIMIENTO') return 'En mantenimiento'
   return estado
+}
+
+function parseIsoDate(value: string): Date | undefined {
+  if (!value) return undefined
+  const [year, month, day] = value.split('-').map(Number)
+  if (!year || !month || !day) return undefined
+  return new Date(year, month - 1, day)
+}
+
+function toIsoDate(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function toDisplayDate(value: string): string {
+  if (!value) return 'dd/mm/aaaa'
+  const [year, month, day] = value.split('-')
+  if (!year || !month || !day) return 'dd/mm/aaaa'
+  return `${day}/${month}/${year}`
+}
+
+function to12HourTime(rawValue: string): string | null {
+  const raw = rawValue.trim().toUpperCase().replace(/\s+/g, ' ')
+  if (!raw) return null
+
+  // Accept 24h format like 23:00 and convert to 12h.
+  const match24 = raw.match(/^([01]?\d|2[0-3]):([0-5]\d)$/)
+  if (match24) {
+    const hours24 = Number(match24[1])
+    const minutes = match24[2]
+    const suffix = hours24 >= 12 ? 'PM' : 'AM'
+    const hours12 = hours24 % 12 === 0 ? 12 : hours24 % 12
+    return `${hours12}:${minutes} ${suffix}`
+  }
+
+  // Accept 12h format like 11 PM or 11:30 PM and normalize casing/spaces.
+  const match12 = raw.match(/^(1[0-2]|0?[1-9])(?::([0-5]\d))?\s*([AP])\.?M\.?$/)
+  if (match12) {
+    const hours = String(Number(match12[1]))
+    const minutes = match12[2] ?? '00'
+    const suffix = match12[3] === 'A' ? 'AM' : 'PM'
+    return `${hours}:${minutes} ${suffix}`
+  }
+
+  return null
+}
+
+function splitTimeParts(value: string): { hour: string; meridiem: 'AM' | 'PM' } | null {
+  const normalized = to12HourTime(value)
+  if (!normalized) return null
+  const match = normalized.match(/^(1[0-2]|[1-9]):[0-5]\d\s(AM|PM)$/)
+  if (!match) return null
+  return { hour: match[1], meridiem: match[2] as 'AM' | 'PM' }
+}
+
+function formatCopAmount(rawValue: string): string {
+  const digits = rawValue.replace(/\D/g, '')
+  if (!digits) return ''
+  const normalized = digits.replace(/^0+(?=\d)/, '')
+  return normalized.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+}
+
+function toCopPayloadValue(formattedValue: string): string {
+  return formattedValue.replace(/\D/g, '')
+}
+
+function parseCopAmount(value: string): number {
+  const digits = value.replace(/\D/g, '')
+  if (!digits) return 0
+  return Number(digits)
 }
 
 const estadoTag: Record<Estado, string> = {
@@ -151,19 +227,41 @@ export default function Equipos() {
     fechaInicio: '',
     horaInicio: '',
     descripcionTecnica: '',
-    tiempoEstimadoMantenimiento: 'Horas' as 'Horas' | 'Dias' | 'FechaEstimada',
+    tiempoEstimadoMantenimiento: 'FechaEstimada' as 'Horas' | 'Dias' | 'FechaEstimada',
     fechaFinEstimada: '',
     prioridadMantenimiento: 'Media' as const,
     costoManoObra: '',
     costoRepuestos: '',
     costoTotal: '',
     evidenciaMantenimiento: '',
+    // Campos para Activo (desde Inactivo)
+    motivoReactivacion: '',
+    justificacionReactivacion: '',
+    observacionesReactivacion: '',
+    // Campos para Activo (desde EnMantenimiento)
+    tipoMantenimientoRealizado: 'Preventivo' as 'Preventivo' | 'Correctivo' | 'Predictivo',
+    resultadoMantenimiento: 'Reparado' as 'Reparado' | 'Ajustado' | 'Calibrado' | 'LimpiezaCompletada',
+    pruebasRealizadas: [] as string[],
+    descripcionReparacion: '',
+    condicionActual: 'OperativoNormal' as 'OperativoNormal' | 'OperativoConObservacion',
   })
   const [estadoError, setEstadoError] = useState('')
   const [estadoLoading, setEstadoLoading] = useState(false)
+  const [openDatePicker, setOpenDatePicker] = useState<'fechaInicio' | 'fechaFinEstimada' | null>(null)
 
   const { aula: draftAula, bloque: draftBloque } = splitUbicacion(draftFilters.ubicacion)
   const { aula: formAula, bloque: formBloque } = splitUbicacion(form.ubicacion)
+  const horaInicioParts = splitTimeParts(estadoForm.horaInicio)
+  const selectedHoraInicio = horaInicioParts?.hour ?? ''
+  const selectedMeridiem = horaInicioParts?.meridiem ?? 'AM'
+
+  useEffect(() => {
+    const total = parseCopAmount(estadoForm.costoManoObra) + parseCopAmount(estadoForm.costoRepuestos)
+    const formattedTotal = total > 0 ? formatCopAmount(String(total)) : ''
+    if (estadoForm.costoTotal !== formattedTotal) {
+      setEstadoForm(f => ({ ...f, costoTotal: formattedTotal }))
+    }
+  }, [estadoForm.costoManoObra, estadoForm.costoRepuestos, estadoForm.costoTotal])
 
   async function load(f: Filters) {
     setLoading(true)
@@ -205,6 +303,18 @@ export default function Equipos() {
     next.delete('createEquipo')
     setSearchParams(next, { replace: true })
   }, [isAdmin, searchParams, setSearchParams])
+
+  useEffect(() => {
+    function handleOutsideClick(event: MouseEvent) {
+      const target = event.target as HTMLElement
+      if (!target.closest('.custom-date-picker')) {
+        setOpenDatePicker(null)
+      }
+    }
+
+    document.addEventListener('mousedown', handleOutsideClick)
+    return () => document.removeEventListener('mousedown', handleOutsideClick)
+  }, [])
 
   function applyFilters() {
     setFilters(current => ({ ...draftFilters, page: 1, limit: current.limit }))
@@ -248,9 +358,13 @@ export default function Equipos() {
   }
 
   function openEstadoModal(eq: Equipo) {
+    const estadoInicial: Estado =
+      eq.estado === 'EnMantenimiento' ? 'EnMantenimiento' : eq.estado === 'Inactivo' ? 'Inactivo' : 'Activo'
+
     setEquipoSeleccionado(eq)
+    setOpenDatePicker(null)
     setEstadoForm({
-      estado: 'Inactivo',
+      estado: estadoInicial,
       motivo: '',
       descripcion: '',
       tiempoEstimado: 'Indefinido',
@@ -262,13 +376,21 @@ export default function Equipos() {
       fechaInicio: '',
       horaInicio: '',
       descripcionTecnica: '',
-      tiempoEstimadoMantenimiento: 'Horas',
+      tiempoEstimadoMantenimiento: 'FechaEstimada',
       fechaFinEstimada: '',
       prioridadMantenimiento: 'Media',
       costoManoObra: '',
       costoRepuestos: '',
       costoTotal: '',
       evidenciaMantenimiento: '',
+      motivoReactivacion: '',
+      justificacionReactivacion: '',
+      observacionesReactivacion: '',
+      tipoMantenimientoRealizado: 'Preventivo',
+      resultadoMantenimiento: 'Reparado',
+      pruebasRealizadas: [],
+      descripcionReparacion: '',
+      condicionActual: 'OperativoNormal',
     })
     setEstadoError('')
     setIsClosingEstadoModal(false)
@@ -276,6 +398,7 @@ export default function Equipos() {
   }
 
   function closeEstadoModal() {
+    setOpenDatePicker(null)
     setIsClosingEstadoModal(true)
     setTimeout(() => {
       setShowEstadoModal(false)
@@ -340,14 +463,52 @@ export default function Equipos() {
       return
     }
 
-    if (estadoForm.estado === 'EnMantenimiento' && !estadoForm.horaInicio) {
+    const horaInicioNormalizada = estadoForm.estado === 'EnMantenimiento'
+      ? to12HourTime(estadoForm.horaInicio)
+      : null
+
+    if (estadoForm.estado === 'EnMantenimiento' && !estadoForm.horaInicio.trim()) {
       setEstadoError('La hora de inicio es obligatoria.')
+      return
+    }
+
+    if (estadoForm.estado === 'EnMantenimiento' && !horaInicioNormalizada) {
+      setEstadoError('La hora debe tener formato 12h AM/PM (ej: 11:00 PM).')
       return
     }
 
     if (estadoForm.estado === 'EnMantenimiento' && !estadoForm.descripcionTecnica.trim()) {
       setEstadoError('La descripción técnica es obligatoria.')
       return
+    }
+
+    if (estadoForm.estado === 'EnMantenimiento' && !estadoForm.fechaFinEstimada) {
+      setEstadoError('La fecha estimada de finalización es obligatoria.')
+      return
+    }
+
+    if (estadoForm.estado === 'Activo') {
+      const estadoPrevio = equipoSeleccionado.estado
+      if (estadoPrevio === 'Inactivo') {
+        if (!estadoForm.motivoReactivacion) {
+          setEstadoError('Debes seleccionar un motivo de reactivación.')
+          return
+        }
+        if (!estadoForm.justificacionReactivacion.trim()) {
+          setEstadoError('La justificación de reactivación es obligatoria.')
+          return
+        }
+      }
+      if (estadoPrevio === 'EnMantenimiento') {
+        if (estadoForm.pruebasRealizadas.length === 0) {
+          setEstadoError('Debes seleccionar al menos una prueba realizada.')
+          return
+        }
+        if (!estadoForm.descripcionReparacion.trim()) {
+          setEstadoError('La descripción técnica del mantenimiento realizado es obligatoria.')
+          return
+        }
+      }
     }
 
     setEstadoLoading(true)
@@ -366,16 +527,38 @@ export default function Equipos() {
           tipoMantenimiento: estadoForm.tipoMantenimiento,
           motivoMantenimiento: estadoForm.motivoMantenimiento,
           fechaInicio: estadoForm.fechaInicio,
-          horaInicio: estadoForm.horaInicio,
+          horaInicio: horaInicioNormalizada,
           descripcionTecnica: estadoForm.descripcionTecnica,
-          tiempoEstimadoMantenimiento: estadoForm.tiempoEstimadoMantenimiento,
+          tiempoEstimadoMantenimiento: 'FechaEstimada',
           fechaFinEstimada: estadoForm.fechaFinEstimada,
           prioridadMantenimiento: estadoForm.prioridadMantenimiento,
-          costoManoObra: estadoForm.costoManoObra,
-          costoRepuestos: estadoForm.costoRepuestos,
-          costoTotal: estadoForm.costoTotal,
+          costoManoObra: toCopPayloadValue(estadoForm.costoManoObra),
+          costoRepuestos: toCopPayloadValue(estadoForm.costoRepuestos),
+          costoTotal: toCopPayloadValue(estadoForm.costoTotal),
           evidenciaMantenimiento: estadoForm.evidenciaMantenimiento,
         }),
+        ...(estadoForm.estado === 'Activo' && (() => {
+          const prev = equipoSeleccionado.estado
+          if (prev === 'Inactivo') {
+            return {
+              estadoPrevio: prev,
+              motivoReactivacion: estadoForm.motivoReactivacion,
+              justificacionReactivacion: estadoForm.justificacionReactivacion,
+              observacionesReactivacion: estadoForm.observacionesReactivacion,
+            }
+          }
+          if (prev === 'EnMantenimiento') {
+            return {
+              estadoPrevio: prev,
+              tipoMantenimientoRealizado: estadoForm.tipoMantenimientoRealizado,
+              resultadoMantenimiento: estadoForm.resultadoMantenimiento,
+              pruebasRealizadas: estadoForm.pruebasRealizadas,
+              descripcionReparacion: estadoForm.descripcionReparacion,
+              condicionActual: estadoForm.condicionActual,
+            }
+          }
+          return { estadoPrevio: prev }
+        })()),
       }
 
       await api.patch(`/equipos/${equipoSeleccionado.id}/estado`, payload)
@@ -750,7 +933,10 @@ export default function Equipos() {
               Equipo: <strong>{equipoSeleccionado.nombre}</strong> (ID: {equipoSeleccionado.id})
             </p>
 
-            <form onSubmit={handleUpdateEstado}>
+            <form
+              onSubmit={handleUpdateEstado}
+              className={`estado-modal-form ${openDatePicker ? 'calendar-open' : ''}`}
+            >
               {/* Estado del equipo - Siempre visible */}
               <label className="edit-modal-field">
                 <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Estado del equipo *</span>
@@ -924,26 +1110,107 @@ export default function Equipos() {
 
                   {/* Fila 2: Fecha y Hora de inicio - 2 columnas */}
                   <div className="estado-form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-                    <label className="edit-modal-field">
+                    <label className={`edit-modal-field ${openDatePicker === 'fechaInicio' ? 'date-open' : ''}`}>
                       <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Fecha de inicio *</span>
-                      <input
-                        type="date"
-                        className="modal-control"
-                        value={estadoForm.fechaInicio}
-                        onChange={e => setEstadoForm(f => ({ ...f, fechaInicio: e.target.value }))}
-                        required
-                      />
+                      <div className={`custom-date-picker ${openDatePicker === 'fechaInicio' ? 'is-open' : ''}`}>
+                        <button
+                          type="button"
+                          className="modal-control custom-date-trigger"
+                          onClick={() => setOpenDatePicker(current => current === 'fechaInicio' ? null : 'fechaInicio')}
+                          aria-label="Seleccionar fecha de inicio"
+                        >
+                          <span className={estadoForm.fechaInicio ? 'has-value' : 'is-placeholder'}>
+                            {toDisplayDate(estadoForm.fechaInicio)}
+                          </span>
+                          <span className="custom-date-icon" aria-hidden="true" />
+                        </button>
+                        {openDatePicker === 'fechaInicio' && (
+                          <div className="custom-date-popover">
+                            <DayPicker
+                              mode="single"
+                              locale={es}
+                              captionLayout="dropdown"
+                              fromYear={2000}
+                              toYear={2100}
+                              weekStartsOn={1}
+                              showOutsideDays
+                              selected={parseIsoDate(estadoForm.fechaInicio)}
+                              onSelect={(date) => {
+                                if (!date) return
+                                setEstadoForm(f => ({ ...f, fechaInicio: toIsoDate(date) }))
+                                setOpenDatePicker(null)
+                              }}
+                            />
+                            <div className="custom-date-actions">
+                              <button
+                                type="button"
+                                className="btn-ghost"
+                                onClick={() => {
+                                  setEstadoForm(f => ({ ...f, fechaInicio: '' }))
+                                  setOpenDatePicker(null)
+                                }}
+                              >
+                                Limpiar
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-primary"
+                                onClick={() => {
+                                  setEstadoForm(f => ({ ...f, fechaInicio: toIsoDate(new Date()) }))
+                                  setOpenDatePicker(null)
+                                }}
+                              >
+                                Hoy
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </label>
 
                     <label className="edit-modal-field">
                       <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Hora de inicio *</span>
-                      <input
-                        type="time"
-                        className="modal-control"
-                        value={estadoForm.horaInicio}
-                        onChange={e => setEstadoForm(f => ({ ...f, horaInicio: e.target.value }))}
-                        required
-                      />
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: '10px' }}>
+                        <span className="edit-modal-select-wrap">
+                          <select
+                            className="modal-control"
+                            value={selectedHoraInicio}
+                            onChange={e => {
+                              const hour = e.target.value
+                              setEstadoForm(f => ({
+                                ...f,
+                                horaInicio: hour ? `${hour}:00 ${selectedMeridiem}` : '',
+                              }))
+                            }}
+                            required
+                          >
+                            <option value="">Selecciona hora</option>
+                            {HORAS_12.map(hour => (
+                              <option key={hour} value={hour}>{`${hour}:00`}</option>
+                            ))}
+                          </select>
+                          <span className="edit-modal-chevron" aria-hidden="true" />
+                        </span>
+
+                        <span className="edit-modal-select-wrap">
+                          <select
+                            className="modal-control"
+                            value={selectedMeridiem}
+                            onChange={e => {
+                              const meridiem = e.target.value as 'AM' | 'PM'
+                              setEstadoForm(f => ({
+                                ...f,
+                                horaInicio: selectedHoraInicio ? `${selectedHoraInicio}:00 ${meridiem}` : '',
+                              }))
+                            }}
+                            required
+                          >
+                            <option value="AM">AM</option>
+                            <option value="PM">PM</option>
+                          </select>
+                          <span className="edit-modal-chevron" aria-hidden="true" />
+                        </span>
+                      </div>
                     </label>
                   </div>
 
@@ -960,22 +1227,64 @@ export default function Equipos() {
                     />
                   </label>
 
-                  {/* Fila 4: Tiempo estimado y Prioridad - 2 columnas */}
+                  {/* Fila 4: Fecha estimada de finalización y Prioridad - 2 columnas */}
                   <div className="estado-form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-                    <label className="edit-modal-field">
-                      <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Tiempo estimado</span>
-                      <span className="edit-modal-select-wrap">
-                        <select
-                          className="modal-control"
-                          value={estadoForm.tiempoEstimadoMantenimiento}
-                          onChange={e => setEstadoForm(f => ({ ...f, tiempoEstimadoMantenimiento: e.target.value as any }))}
+                    <label className={`edit-modal-field ${openDatePicker === 'fechaFinEstimada' ? 'date-open' : ''}`}>
+                      <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Fecha estimada de finalización *</span>
+                      <div className={`custom-date-picker ${openDatePicker === 'fechaFinEstimada' ? 'is-open' : ''}`}>
+                        <button
+                          type="button"
+                          className="modal-control custom-date-trigger"
+                          onClick={() => setOpenDatePicker(current => current === 'fechaFinEstimada' ? null : 'fechaFinEstimada')}
+                          aria-label="Seleccionar fecha estimada de finalización"
                         >
-                          <option value="Horas">Horas</option>
-                          <option value="Dias">Días</option>
-                          <option value="FechaEstimada">Fecha estimada de finalización</option>
-                        </select>
-                        <span className="edit-modal-chevron" aria-hidden="true" />
-                      </span>
+                          <span className={estadoForm.fechaFinEstimada ? 'has-value' : 'is-placeholder'}>
+                            {toDisplayDate(estadoForm.fechaFinEstimada)}
+                          </span>
+                          <span className="custom-date-icon" aria-hidden="true" />
+                        </button>
+                        {openDatePicker === 'fechaFinEstimada' && (
+                          <div className="custom-date-popover">
+                            <DayPicker
+                              mode="single"
+                              locale={es}
+                              captionLayout="dropdown"
+                              fromYear={2000}
+                              toYear={2100}
+                              weekStartsOn={1}
+                              showOutsideDays
+                              selected={parseIsoDate(estadoForm.fechaFinEstimada)}
+                              onSelect={(date) => {
+                                if (!date) return
+                                setEstadoForm(f => ({ ...f, fechaFinEstimada: toIsoDate(date) }))
+                                setOpenDatePicker(null)
+                              }}
+                            />
+                            <div className="custom-date-actions">
+                              <button
+                                type="button"
+                                className="btn-ghost"
+                                onClick={() => {
+                                  setEstadoForm(f => ({ ...f, fechaFinEstimada: '' }))
+                                  setOpenDatePicker(null)
+                                }}
+                              >
+                                Limpiar
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-primary"
+                                onClick={() => {
+                                  setEstadoForm(f => ({ ...f, fechaFinEstimada: toIsoDate(new Date()) }))
+                                  setOpenDatePicker(null)
+                                }}
+                              >
+                                Hoy
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </label>
 
                     <label className="edit-modal-field">
@@ -996,57 +1305,40 @@ export default function Equipos() {
                     </label>
                   </div>
 
-                  {/* Fila 5: Fecha fin estimada - Condicional */}
-                  {estadoForm.tiempoEstimadoMantenimiento === 'FechaEstimada' && (
-                    <label className="edit-modal-field">
-                      <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Fecha estimada de finalización</span>
-                      <input
-                        type="date"
-                        className="modal-control"
-                        value={estadoForm.fechaFinEstimada}
-                        onChange={e => setEstadoForm(f => ({ ...f, fechaFinEstimada: e.target.value }))}
-                      />
-                    </label>
-                  )}
-
                   {/* Fila 6: Costos - 3 columnas */}
                   <div className="estado-form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '14px' }}>
                     <label className="edit-modal-field">
-                      <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Costo estimado - Mano de obra</span>
+                      <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Costo estimado - Mano de obra (COP)</span>
                       <input
-                        type="number"
+                        type="text"
                         className="modal-control"
                         value={estadoForm.costoManoObra}
-                        onChange={e => setEstadoForm(f => ({ ...f, costoManoObra: e.target.value }))}
-                        placeholder="0.00"
-                        min="0"
-                        step="0.01"
+                        inputMode="numeric"
+                        onChange={e => setEstadoForm(f => ({ ...f, costoManoObra: formatCopAmount(e.target.value) }))}
+                        placeholder="COP 0"
                       />
                     </label>
 
                     <label className="edit-modal-field">
-                      <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Costo estimado - Repuestos</span>
+                      <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Costo estimado - Repuestos (COP)</span>
                       <input
-                        type="number"
+                        type="text"
                         className="modal-control"
                         value={estadoForm.costoRepuestos}
-                        onChange={e => setEstadoForm(f => ({ ...f, costoRepuestos: e.target.value }))}
-                        placeholder="0.00"
-                        min="0"
-                        step="0.01"
+                        inputMode="numeric"
+                        onChange={e => setEstadoForm(f => ({ ...f, costoRepuestos: formatCopAmount(e.target.value) }))}
+                        placeholder="COP 0"
                       />
                     </label>
 
                     <label className="edit-modal-field">
-                      <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Costo total estimado</span>
+                      <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Costo total estimado (COP)</span>
                       <input
-                        type="number"
+                        type="text"
                         className="modal-control"
                         value={estadoForm.costoTotal}
-                        onChange={e => setEstadoForm(f => ({ ...f, costoTotal: e.target.value }))}
-                        placeholder="0.00"
-                        min="0"
-                        step="0.01"
+                        placeholder="Se calcula automáticamente"
+                        readOnly
                       />
                     </label>
                   </div>
@@ -1061,6 +1353,149 @@ export default function Equipos() {
                       onChange={e => setEstadoForm(f => ({ ...f, evidenciaMantenimiento: e.target.value }))}
                       placeholder="https://ejemplo.com/foto.jpg"
                     />
+                  </label>
+                </>
+              )}
+
+              {estadoForm.estado === 'Activo' && equipoSeleccionado.estado === 'Inactivo' && (
+                <>
+                  {/* Reactivación desde Inactivo */}
+                  <label className="edit-modal-field">
+                    <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Motivo de reactivación *</span>
+                    <span className="edit-modal-select-wrap">
+                      <select
+                        className="modal-control"
+                        value={estadoForm.motivoReactivacion}
+                        onChange={e => setEstadoForm(f => ({ ...f, motivoReactivacion: e.target.value }))}
+                        required
+                      >
+                        <option value="">Selecciona un motivo</option>
+                        <option value="ReincorporacionServicio">Reincorporación al servicio</option>
+                        <option value="NuevaAsignacion">Nueva asignación</option>
+                        <option value="ReactivacionProgramada">Reactivación programada</option>
+                        <option value="DisponibilidadRequerida">Disponibilidad requerida</option>
+                        <option value="AutorizacionAdministrativa">Autorización administrativa</option>
+                      </select>
+                      <span className="edit-modal-chevron" aria-hidden="true" />
+                    </span>
+                  </label>
+
+                  <label className="edit-modal-field">
+                    <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Justificación *</span>
+                    <textarea
+                      className="modal-control"
+                      value={estadoForm.justificacionReactivacion}
+                      onChange={e => setEstadoForm(f => ({ ...f, justificacionReactivacion: e.target.value }))}
+                      placeholder="Describe la razón por la que el equipo vuelve a estar activo"
+                      style={{ minHeight: '90px', fontFamily: 'inherit', padding: '10px', resize: 'vertical' }}
+                      required
+                    />
+                  </label>
+
+                  <label className="edit-modal-field">
+                    <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Observaciones (opcional)</span>
+                    <textarea
+                      className="modal-control"
+                      value={estadoForm.observacionesReactivacion}
+                      onChange={e => setEstadoForm(f => ({ ...f, observacionesReactivacion: e.target.value }))}
+                      placeholder="Notas adicionales sobre la reactivación"
+                      style={{ minHeight: '80px', fontFamily: 'inherit', padding: '10px', resize: 'vertical' }}
+                    />
+                  </label>
+                </>
+              )}
+
+              {estadoForm.estado === 'Activo' && equipoSeleccionado.estado === 'EnMantenimiento' && (
+                <>
+                  {/* Cierre de mantenimiento → Activo */}
+                  <div className="estado-form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                    <label className="edit-modal-field">
+                      <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Tipo de mantenimiento realizado *</span>
+                      <span className="edit-modal-select-wrap">
+                        <select
+                          className="modal-control"
+                          value={estadoForm.tipoMantenimientoRealizado}
+                          onChange={e => setEstadoForm(f => ({ ...f, tipoMantenimientoRealizado: e.target.value as any }))}
+                        >
+                          <option value="Preventivo">Preventivo</option>
+                          <option value="Correctivo">Correctivo</option>
+                          <option value="Predictivo">Predictivo</option>
+                        </select>
+                        <span className="edit-modal-chevron" aria-hidden="true" />
+                      </span>
+                    </label>
+
+                    <label className="edit-modal-field">
+                      <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Resultado del mantenimiento *</span>
+                      <span className="edit-modal-select-wrap">
+                        <select
+                          className="modal-control"
+                          value={estadoForm.resultadoMantenimiento}
+                          onChange={e => setEstadoForm(f => ({ ...f, resultadoMantenimiento: e.target.value as any }))}
+                        >
+                          <option value="Reparado">Reparado</option>
+                          <option value="Ajustado">Ajustado</option>
+                          <option value="Calibrado">Calibrado</option>
+                          <option value="LimpiezaCompletada">Limpieza completada</option>
+                        </select>
+                        <span className="edit-modal-chevron" aria-hidden="true" />
+                      </span>
+                    </label>
+                  </div>
+
+                  <label className="edit-modal-field">
+                    <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Pruebas realizadas *</span>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', paddingTop: '4px' }}>
+                      {(['Encendido', 'Diagnóstico', 'Prueba funcional', 'Validación técnica'] as const).map(prueba => {
+                        const val = prueba === 'Diagnóstico' ? 'Diagnostico' : prueba === 'Prueba funcional' ? 'PruebaFuncional' : prueba === 'Validación técnica' ? 'ValidacionTecnica' : prueba
+                        const checked = estadoForm.pruebasRealizadas.includes(val)
+                        return (
+                          <label key={val} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 400, cursor: 'pointer', padding: '8px 10px', background: checked ? 'var(--primary-subtle, rgba(99,179,237,0.12))' : 'var(--surface-soft)', borderRadius: '8px', border: `1px solid ${checked ? 'var(--primary, #63b3ed)' : 'var(--border-main)'}`, transition: 'all 0.15s' }}>
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => {
+                                setEstadoForm(f => ({
+                                  ...f,
+                                  pruebasRealizadas: checked
+                                    ? f.pruebasRealizadas.filter(p => p !== val)
+                                    : [...f.pruebasRealizadas, val]
+                                }))
+                              }}
+                              style={{ accentColor: 'var(--primary, #63b3ed)', width: '16px', height: '16px' }}
+                            />
+                            {prueba}
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </label>
+
+                  <label className="edit-modal-field">
+                    <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Descripción técnica *</span>
+                    <textarea
+                      className="modal-control"
+                      value={estadoForm.descripcionReparacion}
+                      onChange={e => setEstadoForm(f => ({ ...f, descripcionReparacion: e.target.value }))}
+                      placeholder='Ej: "Se reemplazó la fuente de alimentación y el equipo superó la prueba funcional."'
+                      style={{ minHeight: '100px', fontFamily: 'inherit', padding: '10px', resize: 'vertical' }}
+                      required
+                    />
+                  </label>
+
+                  <label className="edit-modal-field">
+                    <span style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>Condición actual *</span>
+                    <span className="edit-modal-select-wrap">
+                      <select
+                        className="modal-control"
+                        value={estadoForm.condicionActual}
+                        onChange={e => setEstadoForm(f => ({ ...f, condicionActual: e.target.value as any }))}
+                      >
+                        <option value="OperativoNormal">Operativo normal</option>
+                        <option value="OperativoConObservacion">Operativo con observación</option>
+                      </select>
+                      <span className="edit-modal-chevron" aria-hidden="true" />
+                    </span>
                   </label>
                 </>
               )}
@@ -1127,6 +1562,10 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '30px 28px',
     width: '100%',
     maxWidth: '520px',
+    maxHeight: '90vh',
+    overflowY: 'auto',
+    overflowX: 'hidden',
+    scrollBehavior: 'smooth',
     boxShadow: '0 24px 70px rgba(20,30,32,.22)',
     border: '1px solid var(--border-main)',
   },

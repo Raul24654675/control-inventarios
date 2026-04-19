@@ -5,6 +5,44 @@ import { PrismaService } from '../prisma/prisma.service';
 export class HistorialService {
   constructor(private prisma: PrismaService) {}
 
+  private normalizeEstado(value: unknown): 'Activo' | 'Inactivo' | 'EnMantenimiento' | null {
+    if (typeof value !== 'string') return null;
+    const compact = value.replace(/\s+/g, '').toLowerCase();
+    if (compact === 'activo') return 'Activo';
+    if (compact === 'inactivo') return 'Inactivo';
+    if (compact === 'enmantenimiento' || compact === 'mantenimiento') return 'EnMantenimiento';
+    return null;
+  }
+
+  private extractEstadoFromCambio(value: unknown): 'Activo' | 'Inactivo' | 'EnMantenimiento' | null {
+    if (typeof value === 'string') return this.normalizeEstado(value);
+    if (value && typeof value === 'object') {
+      const estado = (value as Record<string, unknown>).estado;
+      return this.normalizeEstado(estado);
+    }
+    return null;
+  }
+
+  private estadoTransitionLabel(entry: any): string | null {
+    if (String(entry?.campo ?? '').toLowerCase() !== 'estado') return null;
+    const anterior = this.extractEstadoFromCambio(entry?.cambios?.valorAnterior);
+    const nuevo = this.extractEstadoFromCambio(entry?.cambios?.valorNuevo);
+    if (!anterior || !nuevo || anterior === nuevo) return null;
+
+    const fromLabel: Record<'Activo' | 'Inactivo' | 'EnMantenimiento', string> = {
+      Activo: 'Activo',
+      Inactivo: 'Inactivo',
+      EnMantenimiento: 'Mantenimiento',
+    };
+    const toLabel: Record<'Activo' | 'Inactivo' | 'EnMantenimiento', string> = {
+      Activo: 'Activo',
+      Inactivo: 'Inactivo',
+      EnMantenimiento: 'En mantenimiento',
+    };
+
+    return `${fromLabel[anterior]} -> ${toLabel[nuevo]}`;
+  }
+
   private parseJsonSafe(value: string | null) {
     if (!value) return null;
     try {
@@ -69,11 +107,47 @@ export class HistorialService {
     };
   }
 
-  async findAll(filters?: { equipoId?: number; fechaDesde?: Date; fechaHasta?: Date }) {
+  async findAll(filters?: {
+    equipoId?: number;
+    equipo?: string;
+    realizadoPor?: string;
+    accion?: string;
+    cambio?: string;
+    fechaDesde?: Date;
+    fechaHasta?: Date;
+  }) {
     const where: any = {}
 
     if (filters?.equipoId) {
       where.equipoId = filters.equipoId
+    }
+
+    if (filters?.equipo?.trim()) {
+      const equipoFiltro = filters.equipo.trim();
+      const maybeId = Number(equipoFiltro);
+      const or: any[] = [
+        {
+          equipo: {
+            is: {
+              nombre: { contains: equipoFiltro, mode: 'insensitive' },
+            },
+          },
+        },
+      ];
+
+      if (Number.isInteger(maybeId) && maybeId > 0) {
+        or.push({ equipoId: maybeId });
+      }
+
+      where.AND = [...(where.AND ?? []), { OR: or }];
+    }
+
+    if (filters?.realizadoPor?.trim()) {
+      where.usuario = {
+        is: {
+          nombre: { contains: filters.realizadoPor.trim(), mode: 'insensitive' },
+        },
+      };
     }
 
     if (filters?.fechaDesde && filters.fechaHasta) {
@@ -103,7 +177,19 @@ export class HistorialService {
       },
     });
 
-    return data.map((item) => this.mapEntry(item));
+    let mapped = data.map((item) => this.mapEntry(item));
+
+    if (filters?.accion?.trim()) {
+      const accion = filters.accion.trim().toUpperCase();
+      mapped = mapped.filter((entry) => entry.accion === accion);
+    }
+
+    if (filters?.cambio?.trim()) {
+      const cambio = filters.cambio.trim();
+      mapped = mapped.filter((entry) => this.estadoTransitionLabel(entry) === cambio);
+    }
+
+    return mapped;
   }
 
   async findByEquipo(equipoId: number) {
